@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Hostinec u Poslední Lucerny</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0a10;overflow:hidden;font-family:system-ui,Segoe UI,Arial,sans-serif;color:#f3e6c8}
+  canvas{display:block;width:100vw;height:100vh;image-rendering:pixelated;touch-action:none}
+  #status{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0a10;font-size:18px;z-index:5}
+  #status.hidden{display:none}
+  #warn{position:fixed;left:72px;top:10px;max-width:min(560px,90vw);font-size:13px;line-height:1.45;background:rgba(40,12,12,.88);border:1px solid #a54;border-radius:8px;padding:8px 12px;display:none;z-index:4}
+  #warn b{color:#ffb86b}
+  #ask{position:fixed;inset:0;background:rgba(5,4,9,.92);display:none;align-items:center;justify-content:center;z-index:6}
+  #ask div{max-width:520px;padding:22px 26px;background:#1b1626;border:1px solid #6b5a8c;border-radius:12px;line-height:1.5}
+  #ask button,#ask label{display:inline-block;margin:10px 10px 0 0;padding:8px 14px;border-radius:8px;border:0;background:#e0a84a;color:#201408;font-weight:600;cursor:pointer;font-size:14px}
+  #ask button.sec{background:#3a3150;color:#f3e6c8}
+  #ask input{display:none}
+  code{background:#0006;padding:1px 5px;border-radius:4px}
+  @font-face{font-family:"young_ex_7";
+    src:url("fonts/young_ex_7.ttf") format("truetype"),url("fonts/Young_Ex_7.ttf") format("truetype"),
+        url("fonts/young_ex_7.TTF") format("truetype"),url("fonts/young%20ex%207.ttf") format("truetype"),local("young_ex_7");}
+  #talk,#readp{position:fixed;display:none;transform:translate(-50%,-100%);z-index:3;cursor:pointer;user-select:none;
+    font-family:"young_ex_7",monospace;font-size:18px;color:#fff3d6;background:rgba(18,12,28,.92);border:2px solid #e0a84a;
+    border-radius:6px;padding:6px 12px;white-space:nowrap;animation:bob 1s ease-in-out infinite}
+  #talk b,#readp b{color:#e0a84a}
+  @keyframes bob{50%{margin-top:-4px}}
+  #dlg{position:fixed;left:0;right:0;bottom:0;display:none;align-items:flex-end;gap:12px;padding:0 12px 12px;z-index:3;user-select:none;cursor:pointer}
+  #dlg.on{display:flex}
+  /* vzhled lišty podle mluvčího: Feedy = chladná modro-zelená, NPC = teplá cihlová/jantarová */
+  #dlg{--bg:rgba(18,12,28,.94);--bd:#e0a84a;--in:rgba(224,168,74,.25);--nmc:#ffd98a;--nmbg:#2a2038}
+  #dlg[data-who="feedy"]{--bg:rgba(10,30,40,.95);--bd:#5fd0e0;--in:rgba(95,208,224,.22);--nmc:#aef2fb;--nmbg:#0f4250}
+  #dlg[data-who="npc"]{--bg:rgba(46,20,14,.95);--bd:#e8883c;--in:rgba(232,136,60,.25);--nmc:#ffd0a0;--nmbg:#6a2c14}
+  #dlg canvas.portrait{width:auto;height:min(40vh,300px);flex:none;pointer-events:none}
+  #dbox{flex:1;min-width:0;min-height:120px;box-sizing:border-box;background:var(--bg);border:3px solid var(--bd);box-shadow:inset 0 0 0 3px var(--in),0 4px 18px rgba(0,0,0,.5);border-radius:6px;
+    padding:12px 18px 16px;font-family:"young_ex_7",monospace;color:#fff3d6;position:relative}
+  #dname{display:inline-block;color:var(--nmc);background:var(--nmbg);border:2px solid var(--bd);border-radius:4px;padding:2px 10px;font-size:clamp(14px,2vw,20px);margin-bottom:10px}
+  #dtext{font-size:clamp(16px,2.4vw,26px);line-height:1.5;white-space:pre-wrap;min-height:4.5em}
+  #dtext .hid{opacity:0}
+  #dfoot{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:6px}
+  #dnext{color:var(--bd);font-size:18px;visibility:hidden;animation:blink .8s steps(2) infinite;margin-right:6px}
+  #dbox.done #dnext{visibility:visible}
+  .dnav{font-family:"young_ex_7",monospace;font-size:16px;color:var(--nmc);background:var(--nmbg);border:2px solid var(--bd);border-radius:6px;
+    min-width:44px;height:36px;cursor:pointer;padding:0 10px}
+  .dnav:hover:not(:disabled){background:var(--bd);color:var(--bg)}
+  .dnav:disabled{opacity:.3;cursor:default}
+  @keyframes blink{50%{opacity:0}}
+
+  /* ===== pixel UI ===== */
+  .px{font-family:"young_ex_7",monospace;font-size:18px;color:#fff3d6;background:#8a3d18;border:0;border-radius:0;margin:8px;padding:10px 22px;cursor:pointer;
+    text-shadow:2px 2px 0 rgba(0,0,0,.55);
+    box-shadow:0 -4px 0 0 #1a0a06,0 4px 0 0 #1a0a06,-4px 0 0 0 #1a0a06,4px 0 0 0 #1a0a06,inset 0 -4px 0 0 rgba(0,0,0,.35),inset 0 4px 0 0 rgba(255,255,255,.22)}
+  .px:hover{background:#a64c20}
+  .px:active{transform:translateY(2px);box-shadow:0 -4px 0 0 #1a0a06,0 4px 0 0 #1a0a06,-4px 0 0 0 #1a0a06,4px 0 0 0 #1a0a06,inset 0 4px 0 0 rgba(0,0,0,.35)}
+  .px.sec{background:#3a3150}.px.sec:hover{background:#4d426a}
+  .px.danger{background:#8a1f1f}.px.danger:hover{background:#b02a2a}
+  .pxwin{background:#241a33;color:#fff3d6;font-family:"young_ex_7",monospace;padding:22px 28px;margin:10px;box-sizing:border-box;
+    box-shadow:0 -6px 0 0 #e0a84a,0 6px 0 0 #e0a84a,-6px 0 0 0 #e0a84a,6px 0 0 0 #e0a84a,inset 0 0 0 4px #4a3868,inset 0 -8px 0 0 rgba(0,0,0,.25),12px 16px 0 0 rgba(0,0,0,.45)}
+  .mtitle{font-size:24px;color:#ffd98a;text-shadow:3px 3px 0 #000;text-align:center;margin-bottom:14px;letter-spacing:1px}
+  .pane{display:none;flex-direction:column;align-items:stretch}
+  .pane .px{text-align:center}
+  .row{display:flex;justify-content:space-between;font-size:18px;margin-top:6px;text-shadow:2px 2px 0 #000}
+  .row b{color:#ffd98a;font-weight:normal}
+  input[type=range].pxr{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:12px 0;cursor:pointer;--p:50%}
+  .pxr::-webkit-slider-runnable-track{height:12px;background:linear-gradient(to right,#e0a84a var(--p),#120b1c var(--p));
+    box-shadow:0 -3px 0 0 #4a3868,0 3px 0 0 #4a3868,-3px 0 0 0 #4a3868,3px 0 0 0 #4a3868}
+  .pxr::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:30px;margin-top:-9px;background:#ffd98a;border:0;border-radius:0;
+    box-shadow:0 -3px 0 0 #1a0a06,0 3px 0 0 #1a0a06,-3px 0 0 0 #1a0a06,3px 0 0 0 #1a0a06,inset 0 -5px 0 0 rgba(0,0,0,.3),inset 0 4px 0 0 rgba(255,255,255,.5)}
+  .pxr::-moz-range-track{height:12px;background:linear-gradient(to right,#e0a84a var(--p),#120b1c var(--p));
+    box-shadow:0 -3px 0 0 #4a3868,0 3px 0 0 #4a3868,-3px 0 0 0 #4a3868,3px 0 0 0 #4a3868}
+  .pxr::-moz-range-thumb{width:20px;height:30px;background:#ffd98a;border:0;border-radius:0;
+    box-shadow:0 -3px 0 0 #1a0a06,0 3px 0 0 #1a0a06,-3px 0 0 0 #1a0a06,3px 0 0 0 #1a0a06,inset 0 -5px 0 0 rgba(0,0,0,.3),inset 0 4px 0 0 rgba(255,255,255,.5)}
+  #gear{position:fixed;left:16px;top:16px;z-index:11;width:48px;height:48px;padding:0;margin:0;display:flex;align-items:center;justify-content:center}
+  #gear canvas{width:30px;height:30px;image-rendering:pixelated}
+  #menu{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,3,10,.55);z-index:10}
+  #mwin{width:min(380px,88vw)}
+  #zoomui{position:fixed;inset:0;display:none;background:rgba(5,3,10,.45);z-index:10}
+  #zwin{position:absolute;left:50%;bottom:7vh;transform:translateX(-50%);width:min(520px,86vw)}
+  #zwin .btns{display:flex;justify-content:center;flex-wrap:wrap}
+  #bye{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#08060c;z-index:30;
+    font-family:"young_ex_7",monospace;color:#fff3d6;text-align:center;gap:10px}
+  #bye .mtitle{font-size:30px}
+  /* pixel styl i pro dialog */
+  #talk,#readp{border:0;border-radius:0;margin:4px;box-shadow:0 -4px 0 0 #e0a84a,0 4px 0 0 #e0a84a,-4px 0 0 0 #e0a84a,4px 0 0 0 #e0a84a,inset 0 -4px 0 0 rgba(0,0,0,.35),6px 8px 0 0 rgba(0,0,0,.4)}
+  #dbox{border:0;border-radius:0;margin:6px 6px 6px 4px;
+    box-shadow:0 -4px 0 0 var(--bd),0 4px 0 0 var(--bd),-4px 0 0 0 var(--bd),4px 0 0 0 var(--bd),inset 0 0 0 4px var(--in),inset 0 -8px 0 0 rgba(0,0,0,.25),10px 14px 0 0 rgba(0,0,0,.4)}
+  #dname{border:0;border-radius:0;margin:3px 3px 14px;text-shadow:2px 2px 0 rgba(0,0,0,.6);
+    box-shadow:0 -3px 0 0 var(--bd),0 3px 0 0 var(--bd),-3px 0 0 0 var(--bd),3px 0 0 0 var(--bd)}
+  #dtext{text-shadow:2px 2px 0 rgba(0,0,0,.6)}
+  .dnav{border:0;border-radius:0;margin:4px;text-shadow:2px 2px 0 rgba(0,0,0,.6);
+    box-shadow:0 -3px 0 0 var(--bd),0 3px 0 0 var(--bd),-3px 0 0 0 var(--bd),3px 0 0 0 var(--bd),inset 0 -4px 0 0 rgba(0,0,0,.3)}
+
+  /* ===== listina ===== */
+  #doc{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,3,10,.74);z-index:8;
+    font-family:"young_ex_7",monospace;user-select:none}
+  #doc.on{display:flex}
+  #paper{position:relative;width:min(900px,94vw);height:calc(100vh - 118px);display:flex;flex-direction:column;filter:drop-shadow(10px 14px 0 rgba(0,0,0,.45))}
+  .rod{flex:none;height:20px;margin:0 -18px;position:relative;z-index:1;
+    background:linear-gradient(#c58c4a 0 22%,#9a6430 22% 55%,#5e3a1a 55% 100%);
+    box-shadow:0 -4px 0 0 #1a0a06,0 4px 0 0 #1a0a06,-4px 0 0 0 #1a0a06,4px 0 0 0 #1a0a06}
+  .rod::before,.rod::after{content:"";position:absolute;top:-4px;bottom:-4px;width:14px;background:#7a4a22;box-shadow:0 0 0 4px #1a0a06}
+  .rod::before{left:-8px}.rod::after{right:-8px}
+  #pbody{position:relative;flex:1;min-height:0;overflow:auto;padding:20px 40px 62px;color:#2e1a0c;
+    background-color:#e9d6a4;background-image:var(--tex);background-size:256px 256px;image-rendering:pixelated;
+    box-shadow:inset 6px 0 0 0 rgba(120,70,20,.22),inset -6px 0 0 0 rgba(120,70,20,.22),inset 0 0 36px rgba(120,70,20,.2)}
+  #pcontent{font-size:22px;line-height:1.5;text-shadow:1px 1px 0 rgba(255,244,210,.55)}
+  #pcontent .hid{opacity:0}
+  #pcontent .b{color:#7a2a10}
+  .pb.title{font-size:1.5em;text-align:center;color:#5a2a10;text-shadow:2px 2px 0 rgba(255,244,210,.7);margin-top:2px}
+  .pb.sub{text-align:center;font-size:1.1em;color:#7a4a22;margin-top:6px}
+  .pb.sub::after{content:"";display:block;height:4px;margin:12px 30px 12px;background:repeating-linear-gradient(90deg,#7a4a22 0 8px,transparent 8px 12px)}
+  .pb.p{margin:10px 0}
+  .pb.li{margin:12px 0 12px 6px}
+  .pb.small{font-size:.68em;line-height:1.5;margin-top:16px;opacity:.9}
+  .pb.sign{text-align:right;margin-top:12px;color:#5a2a10}
+  .inksig{display:inline-block;margin-left:14px;color:#1d2a6a;font-size:1.5em;transform:rotate(-4deg);text-shadow:none}
+  .pb.sigl{margin-top:18px}
+  .px:disabled{opacity:.45;cursor:not-allowed}
+  #doc.dlgmode #pfoot{visibility:hidden}
+  #dlg{z-index:9}
+  #seal{position:absolute;right:30px;bottom:34px;width:56px;height:56px;image-rendering:pixelated;z-index:2;pointer-events:none}
+  #pfoot{margin-top:12px;display:flex}
+  #pfoot .px{display:none}
+
+  #title{position:fixed;inset:0;display:none;z-index:7;background:#08060c}
+  #titlecv{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;filter:blur(2.5px);transform:scale(1.04)}
+  #title::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(rgba(0,0,0,.38),transparent 38%,rgba(0,0,0,.4))}
+  #ttl{position:absolute;top:4.5vh;left:0;right:0;z-index:2;pointer-events:none;font-family:"young_ex_7",monospace;line-height:1.04;text-align:center}
+  #ttl .tl{position:relative;display:table;margin:0 auto;font-size:clamp(30px,8vw,100px);letter-spacing:2px}
+  #ttl .o{position:absolute;left:0;top:0;white-space:nowrap;color:#1a0a06;-webkit-text-stroke:14px #1a0a06;text-shadow:7px 9px 0 rgba(0,0,0,.55)}
+  #ttl .f{position:relative;display:block;white-space:nowrap;-webkit-text-stroke:3px #f6b83a;-webkit-text-fill-color:transparent;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,0) 0 6px,rgba(255,255,255,.28) 6px 9px),
+               linear-gradient(#fff6c0 0 24%,#ffd24a 24% 52%,#f2a02a 52% 78%,#c4601a 78% 100%);
+    -webkit-background-clip:text;background-clip:text}
+  #titlemenu{z-index:2;position:absolute;left:50%;bottom:9vh;transform:translateX(-50%);display:flex;flex-direction:column;width:min(340px,80vw);align-items:stretch}
+  .px.big{font-size:24px;padding:14px 26px;margin:9px 8px;text-align:center}
+  #namebox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,3,10,.7);z-index:8}
+  #nwin{width:min(440px,90vw)}
+  #nwin .btns{display:flex;justify-content:center;flex-wrap:wrap;margin-top:6px}
+  .pxin{display:block;width:calc(100% - 16px);box-sizing:border-box;margin:10px 8px 14px;padding:12px 10px;font-family:"young_ex_7",monospace;font-size:24px;text-align:center;
+    color:#ffd98a;background:#120b1c;border:0;border-radius:0;outline:0;caret-color:#e0a84a;
+    box-shadow:0 -3px 0 0 #4a3868,0 3px 0 0 #4a3868,-3px 0 0 0 #4a3868,3px 0 0 0 #4a3868}
+  .pxin:focus{box-shadow:0 -3px 0 0 #e0a84a,0 3px 0 0 #e0a84a,-3px 0 0 0 #e0a84a,3px 0 0 0 #e0a84a}
+  .pxin::placeholder{color:#6d5a8c}
+
+  #mgcv{position:fixed;inset:0;width:100vw;height:100vh;display:none;z-index:6;touch-action:none;image-rendering:pixelated}
+  #mgLeave{position:fixed;right:18px;top:18px;z-index:6;display:none}
+
+  #prolog{position:fixed;inset:0;display:none;background:#000;z-index:9;align-items:center;justify-content:center;cursor:pointer;user-select:none;
+    font-family:"young_ex_7",monospace;color:#f3e6c8;transition:opacity 1.8s ease}
+  #prolog.on{display:flex}
+  #prolog.out{opacity:0;pointer-events:none}
+  #plbox{max-width:min(900px,86vw);font-size:clamp(18px,2.1vw,30px);line-height:1.75;white-space:pre-wrap;text-shadow:2px 2px 0 rgba(0,0,0,.8)}
+  #plhid{opacity:0}
+  #plnext{position:absolute;bottom:7vh;left:50%;transform:translateX(-50%);color:#e0a84a;font-size:22px;visibility:hidden;animation:blink .8s steps(2) infinite}
+  #prolog.done #plnext{visibility:visible}
+
+  html.customcursor,html.customcursor *{cursor:none !important}
+  #cur{position:fixed;left:0;top:0;display:none;pointer-events:none;z-index:99999;will-change:transform;user-select:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="status">Načítám hostinec…</div>
+<div id="warn"></div>
+<div id="title">
+  <canvas id="titlecv"></canvas>
+  <div id="ttl">
+    <div class="tl"><span class="o">Hostinec u</span><span class="f">Hostinec u</span></div>
+    <div class="tl"><span class="o">Poslední Lucerny</span><span class="f">Poslední Lucerny</span></div>
+  </div>
+  <div id="titlemenu">
+    <button class="px big" id="tPlay">Hrát</button>
+    <button class="px big" id="tOpts">Nastavení</button>
+    <button class="px big danger" id="tExit">Ukončit hru</button>
+  </div>
+</div>
+<div id="namebox">
+  <div id="nwin" class="pxwin">
+    <div class="mtitle">Jak se jmenuješ?</div>
+    <input id="nameInput" class="pxin" maxlength="14" autocomplete="off" spellcheck="false" placeholder="Tvoje jméno">
+    <div class="btns"><button class="px" id="nameOk">Potvrdit</button><button class="px sec" id="nameBack">Zpět</button></div>
+  </div>
+</div>
+<img id="cur" alt="">
+<button id="gear" class="px" title="Nastavení (ESC)"><canvas id="gearcv" width="18" height="18"></canvas></button>
+<div id="menu">
+  <div id="mwin" class="pxwin">
+    <div class="mtitle" id="mtitle">Nastavení</div>
+    <div class="pane" id="mmain">
+      <button class="px" data-go="video">Video</button>
+      <button class="px" data-go="sounds">Zvuk</button>
+      <button class="px" id="toTitle">Hlavní nabídka</button>
+      <button class="px danger" id="exitbtn">Ukončit hru</button>
+      <button class="px sec" id="mclose">Zavřít</button>
+    </div>
+    <div class="pane" id="mopts">
+      <button class="px" data-go="video">Video</button>
+      <button class="px" data-go="sounds">Zvuk</button>
+      <button class="px sec" id="moClose">Zpět</button>
+    </div>
+    <div class="pane" id="mvideo">
+      <button class="px" id="camBtn">Přiblížení kamery</button>
+      <button class="px sec" data-go="root">Zpět</button>
+    </div>
+    <div class="pane" id="msounds">
+      <div class="row"><span>Hudba</span><b id="musVal">50%</b></div>
+      <input type="range" class="pxr" id="musRange" min="0" max="100" step="1" value="50">
+      <div class="row"><span>Zvukové efekty</span><b id="sfxVal">70%</b></div>
+      <input type="range" class="pxr" id="sfxRange" min="0" max="100" step="1" value="70">
+      <button class="px sec" data-go="root">Zpět</button>
+    </div>
+  </div>
+</div>
+<div id="zoomui">
+  <div id="zwin" class="pxwin">
+    <div class="mtitle">Přiblížení kamery</div>
+    <div class="row"><span>Přiblížení</span><b id="zoomVal">100%</b></div>
+    <input type="range" class="pxr" id="zoomRange" min="0" max="100" step="1" value="50">
+    <div class="btns">
+      <button class="px" id="zoomReset">Obnovit výchozí</button>
+      <button class="px sec" id="zoomDone">Hotovo</button>
+    </div>
+  </div>
+</div>
+<div id="bye"><div class="mtitle">Hra ukončena</div><div>Tuto kartu už můžeš zavřít.</div>
+  <button class="px" onclick="location.reload()">Hrát znovu</button></div>
+<canvas id="mgcv"></canvas>
+<button class="px sec" id="mgLeave">Odejít</button>
+<div id="prolog"><div id="plbox"><span id="plvis"></span><span id="plhid"></span></div><div id="plnext">▼</div></div>
+<div id="doc">
+  <div id="paper">
+    <div class="rod"></div>
+    <div id="pbody">
+      <div id="pcontent"></div>
+    </div>
+    <canvas id="seal" width="14" height="14"></canvas>
+    <div class="rod"></div>
+  </div>
+  <div id="pfoot">
+    <button class="px" id="docNext">Dál ▶</button>
+    <button class="px" id="docSign">Podepsat</button>
+    <button class="px" id="docClose">Zavřít</button>
+  </div>
+</div>
+<div id="readp"><b>E</b> · Přečíst</div>
+<div id="talk"><b>E</b> · Mluvit</div>
+<div id="dlg">
+  <canvas class="portrait" id="pL"></canvas>
+  <div id="dbox"><div id="dname"></div><div id="dtext"><span class="vis"></span><span class="hid"></span></div><div id="dfoot"><span id="dnext">▼</span><button id="dleave" class="dnav" title="Odejít (Backspace)" style="display:none">Odejít</button><button id="dback" class="dnav" title="Zpět (←)">◀</button><button id="dfwd" class="dnav" title="Dál (mezerník / klik)">▶</button></div></div>
+</div>
+<div id="ask"><div id="askbox"></div></div>
+
+<script id="mapdata" type="application/json">{"tilewidth":32,"tileheight":32,"tilesets":[{"firstgid":1,"source":"retro.tsx"},{"firstgid":769,"source":"../../Downloads/fire.tsx"}],"layers":[{"type":"objectgroup","name":"collision","visible":true,"objects":[{"height":60.5455,"id":10,"name":"","type":"collision","visible":true,"width":86.5455,"x":3620.18,"y":1974},{"height":31.4545,"id":11,"name":"","type":"collision","visible":true,"width":20,"x":3589.45,"y":1983.82},{"height":23.4545,"id":14,"name":"","type":"collision","visible":true,"width":26.1818,"x":3650.18,"y":1951.82},{"height":25,"id":15,"name":"","type":"collision","visible":true,"width":16.3333,"x":3717.33,"y":1991},{"height":24.5455,"id":16,"name":"","type":"collision","visible":true,"width":7.27273,"x":3730,"y":1984.91},{"height":22.1818,"id":17,"name":"","type":"collision","visible":true,"width":24,"x":3652,"y":2025.82},{"height":60.25,"id":18,"name":"","type":"collision","visible":true,"width":86.5,"x":3620,"y":2133.75},{"height":32,"id":19,"name":"","type":"collision","visible":true,"width":21.25,"x":3588.5,"y":2143.75},{"height":22.75,"id":20,"name":"","type":"collision","visible":true,"width":22.75,"x":3652.75,"y":2112},{"height":24.75,"id":21,"name":"","type":"collision","visible":true,"width":16,"x":3717.75,"y":2150.75},{"height":25.25,"id":22,"name":"","type":"collision","visible":true,"width":8.25,"x":3730,"y":2143.75},{"height":61,"id":23,"name":"","type":"collision","visible":true,"width":85,"x":3619.67,"y":2293.67},{"height":32.6667,"id":24,"name":"","type":"collision","visible":true,"width":20.6667,"x":3590.33,"y":2304},{"height":29,"id":25,"name":"","type":"collision","visible":true,"width":19.3333,"x":3718,"y":2306.33},{"height":22.3333,"id":26,"name":"","type":"collision","visible":true,"width":24.6667,"x":3651.67,"y":2345.33},{"height":24,"id":27,"name":"","type":"collision","visible":true,"width":26,"x":3649.67,"y":2271.33},{"height":158.333,"id":28,"name":"","type":"collision","visible":true,"width":86.3333,"x":3810.67,"y":2100.67},{"height":29,"id":29,"name":"","type":"collision","visible":true,"width":25.6667,"x":3843,"y":2242.33},{"height":60,"id":34,"name":"","type":"collision","visible":true,"width":341.333,"x":3843.33,"y":2325.33},{"height":22.6667,"id":35,"name":"","type":"collision","visible":true,"width":26,"x":3938.67,"y":2304.67},{"height":21.3333,"id":36,"name":"","type":"collision","visible":true,"width":24.6667,"x":4034.67,"y":2306},{"height":20.6667,"id":37,"name":"","type":"collision","visible":true,"width":25.3333,"x":4131.33,"y":2307.33},{"height":32.6667,"id":38,"name":"","type":"collision","visible":true,"width":60.6667,"x":4129.33,"y":2399.33},{"height":24.6667,"id":39,"name":"","type":"collision","visible":true,"width":26.6667,"x":4001.33,"y":2180},{"height":23.75,"id":40,"name":"","type":"collision","visible":true,"width":23.25,"x":4100.5,"y":2180},{"height":59.25,"id":41,"name":"","type":"collision","visible":true,"width":60,"x":4034,"y":2146.5},{"height":24,"id":42,"name":"","type":"collision","visible":true,"width":24,"x":4003.33,"y":2020.33},{"height":23,"id":43,"name":"","type":"collision","visible":true,"width":22.3333,"x":4101,"y":2020},{"height":61.3333,"id":44,"name":"","type":"collision","visible":true,"width":60,"x":4034,"y":1985.33},{"height":30.75,"id":45,"name":"","type":"collision","visible":true,"width":55.75,"x":4035.25,"y":1919},{"height":29.5,"id":46,"name":"","type":"collision","visible":true,"width":63.5,"x":3824,"y":1908.5},{"height":66,"id":47,"name":"","type":"collision","visible":true,"width":737.333,"x":3486.67,"y":1854},{"height":579,"id":48,"name":"","type":"collision","visible":true,"width":32.6667,"x":3487.33,"y":1917},{"height":64.3333,"id":49,"name":"","type":"collision","visible":true,"width":704.667,"x":3519.33,"y":2431.67},{"height":578,"id":50,"name":"","type":"collision","visible":true,"width":30,"x":4194,"y":1856},{"height":66,"id":68,"name":"","type":"collision","visible":true,"width":11.3333,"x":3808,"y":1982.33},{"height":58.3333,"id":69,"name":"","type":"collision","visible":true,"width":22.3333,"x":3816.33,"y":1989},{"height":59.3333,"id":70,"name":"","type":"collision","visible":true,"width":31.6667,"x":3870.67,"y":1989.33},{"height":66,"id":71,"name":"","type":"collision","visible":true,"width":12,"x":3891.67,"y":1982.67},{"height":0,"id":72,"name":"","type":"","visible":true,"width":0,"x":3289.33,"y":2361.33},{"height":0,"id":75,"name":"","type":"","visible":true,"width":0,"x":3268,"y":2119}]},{"type":"objectgroup","name":"interaction","visible":true,"objects":[{"height":36.6666666666665,"id":74,"name":"","type":"interaction","visible":true,"width":56,"x":4036,"y":2162.66666666667}]},{"type":"tilelayer","name":"ground/wall","visible":true,"opacity":1,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2684354660,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,0,0,0,0,0,0,2684354660,148,148,148,148,148,148,148,148,148,148,148,148,148,148,148,148,148,148,148,148,148,3221225572,0,0,0,0,0,0,2684354660,338,339,338,339,338,338,339,339,339,339,339,339,339,339,338,339,339,339,339,339,339,1610612836,0,0,0,0,0,0,2684354660,338,339,338,338,339,337,337,340,337,337,339,339,338,338,337,340,340,339,340,339,339,1610612836,0,0,0,0,0,0,2684354660,338,339,340,338,340,340,339,338,338,338,338,337,338,337,337,339,340,340,338,339,339,1610612836,0,0,0,0,0,0,2684354660,338,339,338,339,337,339,339,337,337,339,339,337,337,338,340,339,337,337,338,338,339,1610612836,0,0,0,0,0,0,2684354660,338,339,339,338,340,338,337,337,338,338,337,340,339,338,339,339,339,339,337,338,338,1610612836,0,0,0,0,0,0,2684354660,338,340,339,338,339,337,337,338,340,340,338,339,339,339,339,340,339,337,338,340,339,1610612836,0,0,0,0,0,0,2684354660,338,339,337,338,339,339,338,340,340,338,338,339,338,339,339,338,337,340,339,339,339,1610612836,0,0,0,0,0,0,2684354660,338,337,337,339,339,339,338,337,338,339,339,339,339,338,339,339,337,339,339,337,339,1610612836,0,0,0,0,0,0,2684354660,338,338,339,339,338,337,338,339,339,339,340,340,338,337,338,339,337,337,339,339,339,1610612836,0,0,0,0,0,0,2684354660,338,338,339,339,338,337,338,337,338,338,338,340,340,337,338,339,338,337,338,340,339,1610612836,0,0,0,0,0,0,2684354660,338,338,339,338,339,337,340,338,339,339,339,337,337,339,339,340,340,337,338,339,339,1610612836,0,0,0,0,0,0,2684354660,338,339,339,339,340,337,338,337,339,340,340,339,338,338,338,338,340,340,337,339,339,1610612836,0,0,0,0,0,0,2684354660,338,339,339,339,338,339,339,337,340,339,337,338,337,337,337,337,340,340,338,339,339,1610612836,0,0,0,0,0,0,2684354660,338,339,339,339,338,339,340,340,337,338,482,482,482,482,482,482,482,482,482,482,482,1610612836,0,0,0,0,0,0,2684354660,338,339,339,337,338,338,340,338,339,340,482,482,482,482,482,482,482,482,482,482,482,1610612836,0,0,0,0,0,0,2684354660,338,339,339,339,339,339,340,339,339,339,482,482,482,482,482,482,482,482,482,482,482,1610612836,0,0,0,0,0,0,100,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,1073741972,100,0,0,0,0,0,0,3221225572,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,1073741924,3221225572,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"ox":106,"oy":55,"w":29,"h":26},{"type":"tilelayer","name":"ground stuff","visible":true,"opacity":1,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,305,306,307,0,0,0,0,639,640,0,0,0,0,0,0,0,0,0,0,0,0,0,17,18,18,18,19,0,0,353,354,355,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,66,66,66,67,0,0,353,354,355,0,0,0,17,18,18,19,0,0,0,0,0,0,0,0,0,0,0,0,113,114,114,114,115,0,0,353,354,355,0,0,0,65,66,66,67,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,401,402,403,0,0,0,113,114,114,115,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,161,162,162,2147483810,163,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,17,18,18,18,19,0,209,210,210,210,211,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,66,66,66,67,0,209,210,210,210,211,0,0,17,18,18,19,0,0,0,0,0,0,0,0,0,0,0,0,113,114,114,114,115,0,209,210,210,210,211,0,0,65,66,66,67,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,209,210,210,210,211,0,0,113,114,114,115,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,209,210,210,210,211,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,17,18,18,3221225586,3221225585,0,257,258,258,258,259,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65,66,66,3221225538,3221225537,0,0,17,18,18,18,18,18,18,18,18,18,18,18,0,0,0,0,0,0,0,0,0,0,113,114,114,3221225490,3221225489,0,0,113,114,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"ox":106,"oy":55,"w":29,"h":26},{"type":"tilelayer","name":"wall stuff","visible":true,"opacity":1,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,195,198,0,494,0,0,0,533,0,197,0,173,0,2147483845,0,533,0,12,13,0,654,200,195,0,0,0,0,0,0,243,246,0,0,0,543,0,0,0,245,364,221,366,2147483893,0,0,0,60,61,0,2147484350,248,243,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,412,269,414,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,362,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,362,0,0,0,0,0,0,1073742067,1073742070,0,0,0,0,395,396,0,1073742069,0,0,0,3221225717,0,1073742364,0,0,0,0,0,1073742072,1073742067,0,0,0,0,0,0,1073742019,1073742022,0,3221226005,0,0,443,444,0,1073742021,0,3221226005,0,3221225669,0,1073742316,0,0,0,3221226005,0,1073742024,1073742019,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"ox":106,"oy":55,"w":29,"h":26},{"type":"objectgroup","name":"fire","visible":true,"objects":[{"gid":367,"height":32,"id":59,"name":"","type":"","visible":true,"width":32,"x":3839.33,"y":1929.67},{"gid":769,"height":32,"id":60,"name":"","type":"","visible":true,"width":32,"x":3838.67,"y":1929.33},{"gid":769,"height":32,"id":66,"name":"","type":"","visible":true,"width":32,"x":3840.67,"y":1933.33}]},{"type":"tilelayer","name":"furniture1","visible":true,"opacity":1,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,317,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,205,352,207,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,253,254,255,0,0,0,589,0,590,0,0,0,0,203,204,0,0,0,0,0,0,0,0,0,0,0,0,0,0,301,302,303,0,0,0,637,0,638,0,0,0,0,251,252,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,205,206,207,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,205,352,207,0,0,0,253,254,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,304,253,254,255,400,0,0,253,254,255,0,0,0,0,203,204,0,0,0,0,0,0,0,0,0,0,0,0,0,0,301,302,303,0,0,0,253,254,255,0,0,0,0,251,252,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,253,254,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,301,302,303,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,205,352,207,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,304,253,254,255,400,0,0,0,205,206,206,346,206,206,346,206,206,346,207,0,0,0,0,0,0,0,0,0,0,0,301,302,303,0,0,0,0,253,254,254,254,254,254,254,254,254,254,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,301,302,302,302,302,302,302,302,302,302,303,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"ox":106,"oy":55,"w":29,"h":26},{"type":"tilelayer","name":"furniture2","visible":true,"opacity":1,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,206,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,304,0,0,0,400,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,352,0,0,0,0,0,0,0,0,0,0,345,0,0,345,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,206,0,0,0,0,0,2684354661,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2684354662,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,448,0,0,0,0,0,2684354661,0,0,0,0,345,0,0,345,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2684354662,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,448,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,206,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,206,0,0,206,0,0,206,0,0,0,0,0,0,0,0,0,0,0,0,0,448,0,0,0,0,0,101,102,0,101,102,0,101,102,0,101,102,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"ox":106,"oy":55,"w":29,"h":26},{"type":"tilelayer","name":"other","visible":true,"opacity":1,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,109,110,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,157,158,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,166,167,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,216,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,165,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,360,0,0,0,0,0,0,0,0,0,0,0,555,556,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,216,0,0,0,0,0,603,604,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,264,456,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,264,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,312,0,0,0,0,0,0,408,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,164,738,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1073742367,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1073742319,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"ox":106,"oy":55,"w":29,"h":26},{"type":"objectgroup","name":"Character","visible":true,"objects":[{"height":0,"id":67,"name":"Feedy","point":true,"type":"spawn","visible":true,"width":0,"x":3855.66666666667,"y":1969.00333333333},{"height":0,"id":73,"name":"Chef","point":true,"type":"spawn2","visible":true,"width":0,"x":4016.66666666667,"y":2400.66666666667}]}]}</script>
+<script>
+"use strict";
+/* ================= NASTAVENÍ (klidně si uprav) ================= */
+const CFG = {
+  PICTURES_DIR: "pictures/",   // složka s obrázky; postava je v pictures/stage1/, pictures/stage2/ ...
+  STAGE: 1,                    // aktuální stage postavy (viz setStage)
+  MAP_FILE: "inn.tmj",         // mapa (musí být vedle html)
+  PLAYER_H: 64,                // výška postavy ve světě (dlaždice = 32 px)
+  SPEED: 100,                  // rychlost chůze, px/s
+  ANIM_FPS: 4,                 // snímků za sekundu u animací postavy
+  FEET_W: 18, FEET_H: 10,      // "chodidla" – část postavy, která naráží do kolizí
+  NORMALIZE_PER_SHEET: true,   // true = každý sheet se škáluje na stejnou výšku postavy
+  FIRE_FPS: 8,                 // rychlost animace ohně
+  VIEW_W: 560, VIEW_H: 400,    // orientační velikost záběru (určuje přiblížení)
+  MUSIC_DIR: "music/",         // složka s hudbou
+  // tyto dlaždicové vrstvy se řadí podle hloubky s postavou (bez ohledu na pořadí vrstvy "Character")
+  SORTED_LAYERS: ["furniture1","furniture2","other"],
+  DOC_CPS: 70,                 // rychlost psaní textu na listině
+  // listina: k = typ bloku, parts = [třída, text] (třída "b" = zvýrazněný text)
+  DOCUMENT_BLOCKS: [
+    {k:"title", parts:[["","KNIHA PŘIJATÝCH HOSTŮ"]]},
+    {k:"sub",   parts:[["","Hostinec U Poslední lucerny"]]},
+    {k:"p",     parts:[["","Já, níže podepsaný poutník, za přítomnosti plamene Lucerny tímto žádám o přístřeší, ochranu před mrazem a místo u společného stolu."]]},
+    {k:"p",     parts:[["","Tímto stvrzuji a přijímám:"]]},
+    {k:"li",    parts:[["b","1. Právo plného stolu:"],[""," Hostinec zaručuje stálý přísun teplých pokrmů, polévek, čerstvého pečiva i horkých nápojů po celou dobu trvání vánice, a to bez nároku na stříbro či jiné platidlo."]]},
+    {k:"li",    parts:[["b","2. Povinnost sdíleného tepla:"],[""," Host se zavazuje chovat mírně, nevyvolávat spory, naplno přijímat nabízenou péči a přispívat k chodu domu svým klidem, odpočinkem a sytostí."]]},
+    {k:"li",    parts:[["b","3. Pravidlo vzájemnosti:"],[""," Přijetím pohostinnosti se host stává přirozenou součástí ochrany domu a setrvává v jeho bezpečí až do řádného uzavření pobytu.*"]]},
+    {k:"small", parts:[["","* Ujednání o uzavření: Host souhlasí s tím, že bude Uchováván, dokud se Pečeť plně nenabije."]]},
+    {k:"sign",  parts:[["","- Správce hostince"]]},
+    {k:"sigl",  parts:[["","Podpis hosta:"]]}
+  ],
+  // dialog po přečtení listiny (před podpisem)
+  DOC_DIALOGUE1: [
+    {who:"chef",  name:"Elirien", text:"Tak co, přečteno? Vezmi brk a naškrábej tam svoje jméno. Stačí podpis a jsi oficiálně pod naší střechou. Horká polévka už čeká."},
+    {who:"feedy", name:"Feedy",   text:"Žádné stříbro, jenom jídlo a klid... V dnešní době to zní jako zázrak."}
+  ],
+  // dialog po podpisu
+  DOC_DIALOGUE2: [
+    {who:"feedy", name:"Feedy",   text:"Hotovo, podepsáno."},
+    {who:"chef",  name:"Elirien", text:"Výborně! Vítej mezi námi. Teď už tě žádný mráz venku nedostane."},
+    {who:"feedy", name:"Feedy",   text:"Stejně mi to vrtá hlavou. Ten třetí bod... byla tam dole pod čarou nějaká drobná poznámka s hvězdičkou. Že tu musím zůstat, dokud nebudu „Uchována“ a Pečeť se nenabije. Co to vůbec znamená?"},
+    {who:"chef",  name:"Elirien", text:"Á, ty sis všimla té hvězdičky? Většina lidí to prostě podškrábne a jde rovnou k jídlu. Znamená to přesně to, co tam stojí. Ochranná pečeť se živí Uchovaným létem. A to léto do ní proudí z lidí tady uvnitř."},
+    {who:"feedy", name:"Feedy",   text:"Z lidí? Jak jako z lidí?"},
+    {who:"chef",  name:"Elirien", text:"Když člověk sedí v bezpečí a dopřává si opravdový blahobyt, tělo v sobě začne ukládat letní žár. Usadí se jako vnitřní klid a spokojenost – a přesně z téhle energie Pečeť čerpá svou moc. Zkrátka tu budeš odpočívat a užívat si plných stolů, dokud si dům nevezme dost síly na celou zimu. Dřív tě ven nepustí."},
+    {who:"feedy", name:"Feedy",   text:"Počkej... takže odsud teď nemůžu odejít? Já jsem se upsala k tomu, že tady budu jen sedět, hodovat a sloužit jako magická zásobárna pro barák?!"},
+    {who:"chef",  name:"Elirien", text:"Tomu se říká poctivá pohostinnost. Tady dostaneš to nejlepší jídlo z celého kraje a dům na oplátku získá svou ochranu. Takže se posaď, uvolni se a naber si. Čím dřív v sobě to léto probudíš, tím dřív bude Pečeť spokojená."},
+    {who:"feedy", name:"Feedy",   text:"Vlastně... když se podívám z okna na tu bílou tmu, stejně bych daleko nedošla. Zmrznout v závěji, nebo tady v teple a bezpečí přečkat to nejhorší? Popravdě, zní to jako ta nejlepší možnost, jak tohle přežít."},
+    {who:"chef",  name:"Elirien", text:"Moudrá slova. Většina lidí zbytečně vzdoruje, než jim dojde to samé. Tak se usaď k ohni, talíř už ti chladne. Odteď jsi v těch nejlepších rukou."}
+  ],
+  MG_CHAR_SCALE: 1.12,         // postava v minihře: 1 = přes celou výšku obrazovky, víc = ještě větší
+  PROLOGUE_CPS: 45,            // rychlost psaní prologu
+  PROLOGUE: [                  // každý odstavec = jedna zpráva; {name} = jméno hráče
+    "Říkalo se, že až přijde Dlouhá zima, nezačne náhle. Že se slunce prostě jednoho dne unaví, obloha zešedne a mráz se pomalu zakousne do země na celé roky. Většina lidí tomu nevěřila – dokud nezačaly zamrzat i ty nejdivočejší řeky a ze severu se nepřihnala bílá tma.",
+    "Vymřely cesty, zpustla pole a venku zůstala jen nelítostná vánice, ve které se nedalo přežít víc než pár hodin. Jedinou nadějí na celém světě zůstala síť Luceren – prastarých zájezdních hostinců, které jako jediné dokázaly vzdorovat mrazu díky Ochranné pečeti. Kdo našel Lucernu, našel život.",
+    "Polomrtvá zimou, se ztuhlými prsty a dechem, který se v ledovém vzduchu měnil v krystalky ledu, se vánicí plahočila {name}. Poslední zbytky sil jí docházely a krajina kolem splývala v jednolitou bílou zeď.",
+    "Pak ale v dálce probliklo teplé, jantarové světlo. Žádná iluze. Ze sněhových závějí vystoupily masivní dřevěné zdi a střecha, ze které líně stoupal dým. Zpoza těžkých dveří byla cítit omamná vůně bylinek, pečeného masa a domova, který jako by do tohohle zmrzlého světa vůbec nepatřil.",
+    "{name} naposledy překonala odpor vichřice, natáhla promrzlou ruku a zatlačila do těžkých dubových dveří hostince."
+  ],
+  MG_BODY: {x0:0.25,x1:0.75,y0:0.03,y1:0.98},    // oblast těla postavy pro klikání (podíly snímku); zobrazí se klávesou C
+  CURSOR_SIZE: 28,             // velikost vlastního kurzoru (CSS px)
+  CURSOR_HOT: {x:0,y:0},       // bod kliknutí v obrázku kurzoru (podíl šířky / výšky; 0,0 = levý horní roh)
+  MG_GOAL: 25,                 // minihra: kolik jídel je třeba nakrmit
+  MG_STUFF_FPS: 5, MG_EAT_FPS: 10, MG_BURP_FPS: 5, MG_OVER_FPS: 5,
+  MG_MOUTH: {x0:0.22,x1:0.78,y0:0.10,y1:0.36},   // oblast pusy v rámci snímku postavy (podíly šířky / výšky); zobrazí se klávesou C
+  HUNGER_SEC: 300, GROWL_GAP: 60,   // kručení břicha: po 5 min bez jídla, pak max. 1x za minutu
+  SE: {burpAfter:5, sburpChance:0.14,sburpGap:14, lburpChance:0.05,lburpGap:35, bellyChance:0.7,bellyVol:0.4},   // říhnutí až po prvních 5 jídlech
+  SOUNDS_DIR: "sounds/",       // zvukové efekty (fireplace.mp3 ...)
+  FIRE_NEAR: 40, FIRE_FAR: 380,// krb: plná hlasitost do NEAR px, od FAR px už není slyšet
+  FIRE_XFADE: 1.5,             // plynulé prolnutí konce a začátku smyčky (s)
+  MAIN_FPS: 2,                 // animace hlavní obrazovky (snímků za sekundu)
+  // nový dialog s Elirien po podpisu listiny
+  DIALOGUE_AFTER: [
+    {who:"chef",  name:"Elirien", text:"Tak tě tu oficiálně vítám. Posaď se k pultu, ať do tebe vleze trochu tepla."},
+    {who:"feedy", name:"Feedy",   text:"Pořád tomu úplně nevěřím. Člověk čeká mrazivou zkázu, a ono se to řeší plnými stoly."},
+    {who:"chef",  name:"Elirien", text:"Svět venku ať si mrzne, tady vládne kuchyně. Na prázdný žaludek žádná magie nefunguje a v Lucerně máme všechno, na co si jen vzpomeneš."},
+    {who:"feedy", name:"Feedy",   text:"Po těch dnech o hladu bych snědla snad úplně cokoliv.", sfx:"growl"},
+    {who:"chef",  name:"Elirien", text:"Výborně, přesně tenhle přístup se mi líbí. Hned ti začnu nosit první chody. Pamatuj – žádné zdráhání a talíře se vrací prázdné."},
+    {who:"feedy", name:"Feedy",   text:"V tom případě se vůbec nebudu bránit. Sem s tím."}
+  ],
+  // krátký dialog po první přeměně na stage 2
+  DIALOGUE_STAGE2: [
+    {who:"feedy", name:"Feedy",   text:"Počkej... to je divné. Cítím se nějak těžší. A taková příjemně hřejivá."},
+    {who:"chef",  name:"Elirien", text:"To je Uchované léto, drahá. První chody se usadí vždycky hned. Pečeť si tě právě poprvé všimla."},
+    {who:"feedy", name:"Feedy",   text:"Takže takhle to bude pokaždé? Že se budu pomalu... zakulacovat?"},
+    {who:"chef",  name:"Elirien", text:"Říkala jsem ti, že tu nikdo neodchází o hladu. A věř mi, sluší ti to. Až dostaneš chuť na přídavek, stačí si objednat."}
+  ],
+  DEFAULT_ZOOM_MUL: 1.3,       // výchozí přiblížení = 130 % původního automatického
+  ZOOM_MAX_TILES: 6,           // nejvíc přiblížený záběr: tolik dlaždic na výšku (poloměr ~3 dlaždice)
+  TALK_LEAVE_DIST: 192,        // 6 dlaždic: když se hráč tak daleko vzdálí od NPC, rozhovor se zavře
+  TALK_DIST: 96,               // 3 dlaždice (3 x 32 px) – do této vzdálenosti od Elirien se nabídne "Mluvit"
+  TYPE_CPS: 38,                // rychlost psaní textu (znaků za sekundu)
+  // dialog: who = "chef" | "feedy". Dlouhé repliky se samy rozdělí na části po max. 3 řádcích
+  // (další část dál říká ta samá postava; mezerník / klik / E = dál).
+  DIALOGUE: [
+    {who:"chef",  name:"Elirien", text:"Ty vypadáš! Pojď rychle blíž k pultu, ať z tebe opadne ten led."},
+    {who:"feedy", name:"Feedy",   text:"Děkuju... venku je to peklo...teda vlastně přesně naopak. Začíná to vypadat, že ty řeči o Dlouhé zimě nebyly jenom báchorky pro strašení dětí."},
+    {who:"chef",  name:"Elirien", text:"Kdepak báchorky. Přichází zima, která potrvá celé roky. Mrazy, ve kterých venku nepřežije vůbec nic. Jediná místa, kde se dá tenhle nečas přečkat, jsou hostince ze sítě Luceren – jako je ten náš."},
+    {who:"feedy", name:"Feedy",   text:"Slyšela jsem o nich na cestách. Říká se, že je chrání nějaká prastará Ochranná pečeť."},
+    {who:"chef",  name:"Elirien", text:"Přesně tak. Prastará magie, která drží ledový vichr za zdmi a uvnitř udržuje stálé teplo. Právě proto se sem teď stahuje tolik lidí ze všech koutů světa. Každý hledá útočiště, kde by mohl bezpečně přečkat ty nejhorší časy."},
+    {who:"feedy", name:"Feedy",   text:"Všimla jsem si, že je tu plno. Vlastně jsem se chtěla ohlásit u pana hostinského."},
+    {who:"chef",  name:"Elirien", text:"No... to je právě to. Pan hostinský před pár dny prostě zmizel. Zůstala jsem na to v kuchyni i za pultem sama. Ale žádný strach, jsi u nás vřele vítaná. Pro každého z cest se tu najde místo i plná mísa. Hlavní je, že jsi v bezpečí a v teple."}
+  ]
+
+};
+const SHEETS = {            // název souboru (bez přípony) -> mřížka sloupce x řádky
+  "run down":  {cols:2, rows:2},
+  "run left":  {cols:2, rows:2},
+  "run right": {cols:2, rows:2},
+  "run up":    {cols:2, rows:2},
+  "stand":     {cols:2, rows:2},
+  "chef":      {cols:2, rows:2},
+  "stuffing":  {cols:4, rows:2, n:6},   // minihra: 6 snímků (4 + 2 v druhém řádku)
+  "eat":       {cols:4, rows:2, n:6},
+  "overstuffed":{cols:4, rows:2, n:6},  // minihra: po posledním soustu (spolu s "swallow")
+  "burp":      {cols:4, rows:2, n:6}    // minihra: spolu s říhnutím
+};
+const EXTS = ["png","PNG","webp","gif","jpg","jpeg"];
+const TILE_DIRS = ["", "pictures/", "tilesets/", "tileset/", "tiles/", "images/", "img/", "assets/", "graphics/"];
+
+/* ================= pomocné funkce ================= */
+const $ = id => document.getElementById(id);
+const canvas = $("c"), ctx = canvas.getContext("2d");
+const warnings = [];
+function warn(html){ warnings.push(html); const w=$("warn"); w.innerHTML = warnings.join("<br>"); w.style.display="block"; }
+
+function tryLoad(urls){
+  return new Promise(res=>{
+    let i=0;
+    (function next(){
+      if(i>=urls.length) return res(null);
+      const u=urls[i++], im=new Image();
+      im.onload=()=>res({img:im,url:u});
+      im.onerror=next;
+      im.src=encodeURI(u);
+    })();
+  });
+}
+function nameVariants(n){
+  const s=new Set([n, n.replace(/ /g,"_"), n.replace(/ /g,"-"), n.replace(/ /g,""),
+    n[0].toUpperCase()+n.slice(1), n.replace(/\b\w/g,c=>c.toUpperCase()),
+    n.replace(/\b\w/g,c=>c.toUpperCase()).replace(/ /g,"_"), n.toUpperCase()]);
+  return [...s];
+}
+function candidates(names, dirs){
+  const out=[];
+  for(const d of dirs) for(const n of names) for(const e of EXTS) out.push(d+n+"."+e);
+  return out;
+}
+
+/* ================= nastavení + zoom ================= */
+const SETTINGS={music:50, sfx:70, zoomT:null};   // zoomT: null = výchozí, jinak 0..1 na posuvníku
+const SAVE_KEY="lampInnSettings";
+function saveSettings(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify(SETTINGS)); }catch(e){} }
+(function loadSettings(){
+  try{
+    const j=JSON.parse(localStorage.getItem(SAVE_KEY)||"{}");
+    if(typeof j.music==="number") SETTINGS.music=Math.min(100,Math.max(0,Math.round(j.music)));
+    if(typeof j.sfx==="number") SETTINGS.sfx=Math.min(100,Math.max(0,Math.round(j.sfx)));
+    if(typeof j.zoomT==="number") SETTINGS.zoomT=Math.min(1,Math.max(0,j.zoomT));
+  }catch(e){}
+})();
+let zoomCss=2;      // aktuální přiblížení v CSS pixelech (UI se nemění)
+function zoomLimits(){
+  const cw=innerWidth, ch=innerHeight, dpr=window.devicePixelRatio||1;
+  let minZ=0.6;
+  if(world.ready){ const b=world.bounds, m=24; minZ=Math.min(cw/(b.w+2*m), ch/(b.h+2*m)); }   // celá dosavadní místnost
+  const base=Math.max(1,Math.round(Math.min(cw/CFG.VIEW_W,ch/CFG.VIEW_H)*dpr))/dpr;
+  let def=base*CFG.DEFAULT_ZOOM_MUL;                                                          // výchozí = 130 %
+  const maxZ=Math.max(ch/(CFG.ZOOM_MAX_TILES*32), base*2.5);                                  // postava zblízka (jako dosud)
+  minZ=Math.min(minZ,maxZ*0.8);
+  def=Math.min(maxZ,Math.max(minZ,def));
+  return {minZ,maxZ,def};
+}
+function applyZoom(){
+  const L=zoomLimits(), dpr=window.devicePixelRatio||1;
+  zoomCss = SETTINGS.zoomT==null ? L.def : L.minZ*Math.pow(L.maxZ/L.minZ,SETTINGS.zoomT);
+  zoom = zoomCss*dpr;
+}
+
+/* ================= postava ================= */
+const sprites = {};   // klíč -> {img, frames:[{sx,sy,sw,sh}], scale}
+const stageSets={}, npcSprites={};
+async function loadSheet(key,dirs){
+  const r=await tryLoad(candidates(nameVariants(key),dirs)); if(!r) return null;
+  const {cols,rows,n}=SHEETS[key], fw=r.img.width/cols, fh=r.img.height/rows, frames=[];
+  for(let y=0;y<rows;y++) for(let x=0;x<cols;x++) frames.push({sx:x*fw,sy:y*fh,sw:fw,sh:fh});
+  if(n) frames.length=Math.min(n,frames.length);
+  return {img:r.img,frames,fw,fh,scale:1};
+}
+function setScales(set){        // měřítko: každý sheet na stejnou výšku (nebo podle "stand")
+  const ref=set["stand"]||Object.values(set)[0];
+  for(const k in set){ const sp=set[k]; sp.scale=CFG.PLAYER_H/(CFG.NORMALIZE_PER_SHEET?sp.fh:(ref?ref.fh:sp.fh)); }
+}
+async function loadStage(n){    // pohybové animace postavy pro stage n ze složky pictures/stage<n>/
+  if(stageSets[n]) return stageSets[n];
+  const dirs=[CFG.PICTURES_DIR+"stage"+n+"/"];
+  if(n===1) dirs.push(CFG.PICTURES_DIR,"");                 // starší uspořádání: obrázky přímo v pictures/
+  const set={}, missing=[];
+  for(const key of Object.keys(SHEETS)){
+    if(key==="chef") continue;
+    const sp=await loadSheet(key,dirs); if(sp) set[key]=sp; else missing.push(key);
+  }
+  if(missing.length) warn("Stage "+n+": nenašel jsem <b>"+missing.join(", ")+"</b> ve složce <code>"+dirs[0]+"</code> (např. <code>run down.png</code>). Do té doby je nahrazuje placeholder.");
+  setScales(set);
+  return (stageSets[n]=set);
+}
+function applyStage(n){         // aktivní sada obrázků = NPC + postava ve stage n
+  for(const k of Object.keys(sprites)) delete sprites[k];
+  Object.assign(sprites,npcSprites,stageSets[1]||{},stageSets[n]||{});   // chybějící animace se berou ze stage 1
+}
+async function setStage(n){     // později: setStage(2) po dosažení další fáze růstu
+  await loadStage(n); CFG.STAGE=n; applyStage(n);
+}
+async function loadSprites(){
+  const chef=await loadSheet("chef",[CFG.PICTURES_DIR,CFG.PICTURES_DIR+"stage1/",CFG.PICTURES_DIR+"npc/",""]);
+  if(chef){ chef.scale=CFG.PLAYER_H/chef.fh; npcSprites.chef=chef; }
+  else warn("Nenašel jsem obrázek kuchařky <b>chef</b> ve složce <code>"+CFG.PICTURES_DIR+"</code>.");
+  await setStage(CFG.STAGE);
+}
+
+/* ================= mapa ================= */
+const world = { steps:[], solids:[], spawn:{x:0,y:0}, bounds:{x:0,y:0,w:640,h:480}, ready:false };
+const tilesetImgCache = {};
+
+function askUserForImage(name){
+  return new Promise(res=>{
+    $("status").classList.add("hidden");
+    const box=$("askbox");
+    box.innerHTML = "<b>Chybí obrázek tilesetu „"+name+"“.</b><br>Mapa ho potřebuje, ale nenašel jsem ho vedle html ani ve složkách "+
+      "(<code>pictures/</code>, <code>tilesets/</code>…). Vyber soubor (např. <code>"+name+".png</code>), nebo pokračuj bez něj – dlaždice se pak zobrazí jako barevné čtverce.<br>"+
+      "<label>Vybrat obrázek<input type='file' accept='image/*'></label><button class='sec' id='skipTs'>Pokračovat bez něj</button>";
+    $("ask").style.display="flex";
+    const done=v=>{ $("ask").style.display="none"; res(v); };
+    box.querySelector("input").onchange=e=>{
+      const f=e.target.files[0]; if(!f) return;
+      const im=new Image(); im.onload=()=>done({img:im}); im.onerror=()=>done(null);
+      im.src=URL.createObjectURL(f);
+    };
+    $("skipTs").onclick=()=>done(null);
+  });
+}
+
+function layoutSheet(img,tw,th,count){
+  const W=img.width,H=img.height;
+  const tries=[[0,0]]; for(let m=0;m<=2;m++)for(let s=0;s<=2;s++) tries.push([m,s]);
+  for(const [m,s] of tries){
+    const cols=Math.floor((W-2*m+s)/(tw+s)), rows=Math.floor((H-2*m+s)/(th+s));
+    if(count && cols*rows===count) return {m,s,cols,rows};
+  }
+  return {m:0,s:0,cols:Math.max(1,Math.floor(W/tw)),rows:Math.max(1,Math.floor(H/th))};
+}
+
+async function parseMap(j){
+  const tw=j.tilewidth||32, th=j.tileheight||32;
+  // tilesety
+  const tsets=(j.tilesets||[]).map(t=>{
+    const src=t.source||t.name||"tileset";
+    const base=src.replace(/\\/g,"/").split("/").pop().replace(/\.(tsx|tsj|json)$/i,"");
+    const names=[base];
+    if(t.image){ const ib=t.image.replace(/\\/g,"/").split("/").pop(); names.push(ib.replace(/\.[a-z]+$/i,"")); }
+    return {firstgid:t.firstgid,name:base,names,tw:t.tilewidth||tw,th:t.tileheight||th,inlineImage:t.image,count:t.tilecount||0};
+  }).sort((a,b)=>a.firstgid-b.firstgid);
+  for(let i=0;i<tsets.length;i++){
+    const t=tsets[i];
+    if(!t.count && tsets[i+1]) t.count=tsets[i+1].firstgid-t.firstgid;
+    let r=tilesetImgCache[t.name];
+    if(!r){
+      const urls=[]; if(t.inlineImage) urls.push(t.inlineImage.replace(/\\/g,"/").split("/").pop(), t.inlineImage);
+      r=await tryLoad(urls.concat(candidates(t.names.flatMap(nameVariants),TILE_DIRS)));
+      if(!r) r=await askUserForImage(t.name);
+      if(r) tilesetImgCache[t.name]=r;
+    }
+    t.img=r?r.img:null;
+    t.animated=/fire/i.test(t.name);
+    if(t.img){ Object.assign(t,layoutSheet(t.img,t.tw,t.th,t.animated?0:t.count)); }
+    else { warn("Tileset <b>"+t.name+"</b> nenalezen – mapa je zobrazena placeholderem."); }
+  }
+  const findTs=gid=>{ for(let i=tsets.length-1;i>=0;i--) if(gid>=tsets[i].firstgid) return tsets[i]; return null; };
+
+  // vrstvy
+  const layers=j.layers.map(l=>({...l}));
+  const solids=[]; const interactions=[]; const fireSrc=[]; let spawn=null, chef=null;
+  const isColName=s=>/collision|kolize/i.test(s||"");
+  for(const l of layers){
+    if(l.type!=="objectgroup") continue;
+    for(const o of l.objects||[]){
+      const cls=(o.type||o.class||"");
+      const propCol=(o.properties||[]).some(p=>isColName(p.name)&&p.value===true);
+      if(o.point){
+        if(cls==="spawn2"||/chef/i.test(o.name||"")){ if(!chef) chef={x:o.x,y:o.y}; }
+        else if(cls==="spawn"||/feedy/i.test(o.name||"")){ if(!spawn) spawn={x:o.x,y:o.y}; }
+      }
+      if(o.gid && /fire/i.test(l.name||"")) fireSrc.push({x:o.x+(o.width||32)/2,y:o.y-(o.height||32)/2});   // zdroj zvuku krbu
+      if(o.gid) continue;
+      if(!o.point && (/interaction/i.test(cls)||/interaction/i.test(l.name||"")) && o.width>0 && o.height>0){
+        interactions.push({x:o.x,y:o.y,w:o.width,h:o.height}); continue;
+      }
+      if(!o.point && (isColName(cls)||isColName(l.name)||propCol) && o.width>0 && o.height>0)
+        solids.push({x:o.x,y:o.y,w:o.width,h:o.height});
+    }
+  }
+  if(!spawn) for(const l of layers) if(l.type==="objectgroup") for(const o of l.objects||[]) if(o.point&&!spawn&&(o.type||o.class)!=="spawn2"&&!/chef/i.test(o.name||"")) spawn={x:o.x,y:o.y};
+
+  // hranice (z neprázdných dlaždic)
+  let minx=1e9,miny=1e9,maxx=-1,maxy=-1;
+  for(const l of layers){
+    if(l.type!=="tilelayer") continue;
+    const ox=l.ox||0, oy=l.oy||0, W=l.w||l.width;
+    l.data.forEach((g,i)=>{ if(g){ const x=ox+i%W,y=oy+Math.floor(i/W); if(x<minx)minx=x; if(x>maxx)maxx=x; if(y<miny)miny=y; if(y>maxy)maxy=y; }});
+  }
+  if(maxx<0){ minx=miny=0; maxx=maxy=14; }
+  const bx=minx*tw, by=miny*th, bw=(maxx-minx+1)*tw, bh=(maxy-miny+1)*th;
+
+  const FL=0x1FFFFFFF;
+  function drawGid(c,gid,dx,dy,dw,dh,frameShift){
+    const flipH=!!(gid&0x80000000), flipV=!!(gid&0x40000000), flipD=!!(gid&0x20000000);
+    gid=(gid&FL)>>>0;
+    const t=findTs(gid); if(!t) return;
+    let local=gid-t.firstgid;
+    if(!t.img){ c.fillStyle="hsla("+((gid*47)%360)+",55%,50%,.55)"; c.fillRect(dx,dy,dw,dh); return; }
+    if(t.animated && frameShift!=null){ const total=Math.max(1,t.cols*t.rows); local=(local+frameShift)%total; }
+    const col=local%t.cols,row=Math.floor(local/t.cols);
+    const sx=t.m+col*(t.tw+t.s), sy=t.m+row*(t.th+t.s);
+    if(!flipH&&!flipV&&!flipD){ c.drawImage(t.img,sx,sy,t.tw,t.th,dx,dy,dw,dh); return; }
+    c.save(); c.translate(dx+dw/2,dy+dh/2); c.scale(flipH?-1:1,flipV?-1:1);
+    if(flipD) c.transform(0,1,1,0,0,0);
+    c.drawImage(t.img,sx,sy,t.tw,t.th,-dw/2,-dh/2,dw,dh); c.restore();
+  }
+
+  // kroky vykreslování v pořadí vrstev z Tiled
+  const steps=[]; const sortedTiles=[]; let cache=null, cctx=null, playerPlaced=false, passedPlayer=false;
+  const flush=()=>{ cache=null; cctx=null; };
+  for(const l of layers){
+    if(l.visible===false) continue;
+    if(l.type==="tilelayer"){
+      if(passedPlayer || CFG.SORTED_LAYERS.includes((l.name||"").toLowerCase())){
+        // vrstvy nad postavou: dlaždice se řadí podle hloubky (viz render)
+        const ox=l.ox||0, oy=l.oy||0, W=l.w||l.width, op=l.opacity==null?1:l.opacity;
+        l.data.forEach((g,i)=>{ if(g) sortedTiles.push({gid:g,x:(ox+i%W)*tw,y:(oy+Math.floor(i/W))*th,w:tw,h:th,op}); });
+        continue;
+      }
+      if(!cache){ cache=document.createElement("canvas"); cache.width=bw; cache.height=bh; cctx=cache.getContext("2d"); cctx.imageSmoothingEnabled=false; steps.push({type:"cache",canvas:cache,sorted:passedPlayer}); }
+      cctx.globalAlpha=l.opacity==null?1:l.opacity;
+      const ox=l.ox||0, oy=l.oy||0, W=l.w||l.width;
+      l.data.forEach((g,i)=>{ if(g) drawGid(cctx,g,(ox+i%W)*tw-bx,(oy+Math.floor(i/W))*th-by,tw,th); });
+      cctx.globalAlpha=1;
+    } else if(l.type==="objectgroup"){
+      const tiles=(l.objects||[]).filter(o=>o.gid&&o.visible!==false);
+      if(/^character$/i.test(l.name)){ flush(); steps.push({type:"player"}); playerPlaced=true; passedPlayer=true; }
+      else if(tiles.length){ flush(); steps.push({type:"objects",objs:tiles,draw:drawGid}); }
+    }
+  }
+  if(!playerPlaced) steps.push({type:"player"});
+  for(const s of steps) if(s.type==="cache") s.bx=bx, s.by=by;
+  // "základna" každé dlaždice = y, od kterého je postava před ní (podle kolizního boxu, který ji překrývá;
+  // omezeno na ±16 px od spodní hrany dlaždice, aby velké zdi nic nerozházely)
+  for(const t of sortedTiles){
+    const bottom=t.y+t.h; let mb=-Infinity;
+    for(const r of solids){
+      const ox=Math.min(t.x+t.w,r.x+r.w)-Math.max(t.x,r.x), oy=Math.min(bottom,r.y+r.h)-Math.max(t.y,r.y);
+      if(ox>2&&oy>2) mb=Math.max(mb,r.y+r.h);
+    }
+    t.base = mb===-Infinity ? bottom : Math.min(bottom+16,Math.max(bottom-16,mb));
+  }
+  return {steps,solids,spawn:spawn||{x:bx+bw/2,y:by+bh/2},chef,interactions,fireSources:fireSrc,sortedTiles,drawGid,bounds:{x:bx,y:by,w:bw,h:bh},th};
+}
+
+async function buildWorld(j){
+  const w=await parseMap(j);
+  Object.assign(world,w,{ready:true});
+  if(world.chef){ const c=world.chef, pad=2;   // kuchař je překážka
+    world.solids.push({x:c.x-CFG.FEET_W/2-pad,y:c.y-CFG.FEET_H-pad,w:CFG.FEET_W+pad*2,h:CFG.FEET_H+pad*2}); }
+  placePlayer(world.spawn.x,world.spawn.y);
+  applyZoom();
+}
+
+async function loadMapJSON(){
+  try{
+    const r=await fetch(CFG.MAP_FILE,{cache:"no-store"});
+    if(r.ok) return {json:await r.json(), embedded:false};
+  }catch(e){ /* file:// – prohlížeč zakazuje čtení souborů z disku */ }
+  return {json:JSON.parse($("mapdata").textContent), embedded:true};
+}
+
+/* ================= hráč ================= */
+const player = { x:0, y:0, dir:"down", moving:false, t:0, state:"stand" };
+function blocked(x,y){
+  const l=x-CFG.FEET_W/2, r=x+CFG.FEET_W/2, t=y-CFG.FEET_H, b=y;
+  for(const s of world.solids) if(l<s.x+s.w && r>s.x && t<s.y+s.h && b>s.y) return true;
+  return false;
+}
+function placePlayer(x,y){
+  player.x=x; player.y=y;
+  if(blocked(x,y)){
+    for(let r=2;r<200;r+=2) for(let a=0;a<360;a+=30){
+      const nx=x+Math.cos(a*Math.PI/180)*r, ny=y+Math.sin(a*Math.PI/180)*r;
+      if(!blocked(nx,ny)){ player.x=nx; player.y=ny; return; }
+    }
+  }
+}
+
+/* ================= dialog ================= */
+const dlg={active:false,script:[],onEnd:null,canLeave:false,free:false,npc:null,i:0,p:0,pages:[""],shown:0,acc:0,cache:{},seen:new Set()};
+let mode="title";                 // title | play
+const story={talked:false,signed:false,orderUnlocked:false,stage2Talk:false,name:"",hungerT:0,growlCd:0};
+const playerName=()=>story.name||"Feedy";      // po dokončení rozhovoru s Elirien se odemkne čtení listiny
+const docSt={active:false,shown:0,acc:0,phase:"read"};   // phase: read | dlg1 | sign | dlg2 | done
+function readTarget(){           // nejbližší interaktivní objekt v dosahu (stejný dosah jako u NPC)
+  if(!story.talked||!world.interactions) return null;
+  let best=null, bd=Infinity;
+  for(const r of world.interactions){
+    const dx=Math.max(r.x-player.x,0,player.x-(r.x+r.w)), dy=Math.max(r.y-player.y,0,player.y-(r.y+r.h)), d=Math.hypot(dx,dy);
+    if(d<=CFG.TALK_DIST && d<bd){ bd=d; best=r; }
+  }
+  return best;
+}
+const docParts=[]; let docTotal=0;
+function buildDoc(){
+  const root=$("pcontent"); root.innerHTML=""; docParts.length=0;
+  for(const b of CFG.DOCUMENT_BLOCKS){
+    const el=document.createElement("div"); el.className="pb "+b.k;
+    for(const [cls,text] of b.parts){
+      const v=document.createElement("span"), h=document.createElement("span");
+      v.className=cls; h.className=(cls+" hid").trim(); el.append(v,h);
+      docParts.push({v,h,text,el});
+    }
+    root.appendChild(el);
+  }
+  docTotal=docParts.reduce((a,p)=>a+p.text.length,0);
+}
+function setDocShown(n){
+  let rem=n, last=null;
+  for(const p of docParts){
+    const k=Math.max(0,Math.min(p.text.length,rem));
+    p.v.textContent=p.text.slice(0,k); p.h.textContent=p.text.slice(k); rem-=k; if(k>0) last=p.el;
+  }
+  docSt.shown=n;
+  if(last){ const b=$("pbody"), bottom=last.offsetTop+last.offsetHeight; if(bottom>b.scrollTop+b.clientHeight-30) b.scrollTop=bottom-b.clientHeight+60; }
+}
+function addInk(){          // podpis "Feedy" u řádku "Podpis hosta:"
+  const el=$("pcontent").querySelector(".sigl");
+  if(el&&!el.querySelector(".inksig")){ const i=document.createElement("span"); i.className="inksig"; i.textContent=playerName(); el.appendChild(i); }
+}
+function fitDocFont(){      // zvolí největší písmo, při kterém se celý text vejde na listinu bez posouvání
+  const c=$("pcontent"), b=$("pbody"); let fs=26; c.style.fontSize=fs+"px";
+  while(fs>8 && b.scrollHeight>b.clientHeight+1){ fs-=0.5; c.style.fontSize=fs+"px"; }
+}
+addEventListener("resize",()=>{ if(docSt.active) fitDocFont(); });
+function updateDocFooter(){
+  const ph=docSt.phase;
+  $("docNext").style.display=(ph==="read")?"inline-block":"none";
+  $("docSign").style.display=(ph==="sign")?"inline-block":"none";
+  $("docClose").style.display=(ph==="done")?"inline-block":"none";
+  $("doc").classList.toggle("dlgmode",ph==="dlg1"||ph==="dlg2");
+}
+function openDoc(){
+  if(docSt.active||dlg.active) return;
+  buildDoc(); docSt.active=true; docSt.acc=0; held.clear(); pointer.active=false;
+  if(story.signed){ docSt.phase="done"; setDocShown(docTotal); addInk(); }
+  else { docSt.phase="read"; setDocShown(0); }
+  updateDocFooter(); $("doc").classList.add("on"); fitDocFont(); $("pbody").scrollTop=0;
+}
+function closeDoc(){
+  if(docSt.phase!=="done") return;                 // listinu nelze zavřít, dokud se nepodepíše
+  docSt.active=false; $("doc").classList.remove("on","dlgmode"); held.clear(); pointer.active=false;
+}
+function docAdvance(){            // mezerník / Enter / E / → / "Dál"
+  if(docSt.phase==="read"){
+    if(docSt.shown<docTotal){ setDocShown(docTotal); return; }             // nejdřív dopíše text
+    docSt.phase="dlg1"; updateDocFooter();
+    startTalk(CFG.DOC_DIALOGUE1,()=>{ docSt.phase="sign"; updateDocFooter(); });   // po dialogu: tlačítko Podepsat
+  } else if(docSt.phase==="done") closeDoc();
+}
+function doSign(){
+  if(docSt.phase!=="sign") return;
+  uiSound("sign"); addInk(); docSt.phase="dlg2"; updateDocFooter();
+  startTalk(CFG.DOC_DIALOGUE2,()=>{ story.signed=true; docSt.phase="done"; updateDocFooter(); });
+}
+function docTick(dt){
+  if(!docSt.active||docSt.phase!=="read"||menu.state!=="closed") return;
+  if(docSt.shown<docTotal){
+    docSt.acc+=dt*CFG.DOC_CPS; const n=Math.min(docTotal,Math.floor(docSt.acc));
+    if(n!==docSt.shown) setDocShown(n);
+  }
+}
+(function makeParchment(){       // pixel textura pergamenu + vosková pečeť
+  const c=document.createElement("canvas"); c.width=c.height=64; const g=c.getContext("2d");
+  let seed=1337; const rnd=()=>(seed=(seed*1664525+1013904223)>>>0)/4294967296;
+  g.fillStyle="#e9d6a4"; g.fillRect(0,0,64,64);
+  const cols=["#e4cf9b","#eedcae","#e6d3a0"];
+  for(let i=0;i<150;i++){ g.fillStyle=cols[Math.floor(rnd()*cols.length)]; g.fillRect(Math.floor(rnd()*64),Math.floor(rnd()*64),1,1); }
+  document.documentElement.style.setProperty("--tex","url("+c.toDataURL()+")");
+  const sc=$("seal").getContext("2d"), N=14;
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const r=Math.hypot(x+.5-N/2,y+.5-N/2);
+    if(r<=6.6){ sc.fillStyle=r>5.2?"#6b1410":(x+y<N-1?"#c8301f":"#a2231a"); sc.fillRect(x,y,1,1); }
+  }
+  sc.fillStyle="#f08070"; sc.fillRect(4,3,2,1); sc.fillRect(3,4,1,2);
+  sc.fillStyle="#6b1410"; sc.fillRect(6,4,2,6); sc.fillRect(4,6,6,2);   // kříž v pečeti
+})();
+function nearChef(){ return !!world.chef && Math.hypot(player.x-world.chef.x,player.y-world.chef.y)<=CFG.TALK_DIST; }
+const MAX_LINES=3;
+const SENT_END=/([.!?…]+["”“]?)\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ„"“])/g;   // konec věty: za tečkou následuje velké písmeno
+function paginate(text){
+  // Dělí na části po CELÝCH větách tak, aby se každá část vešla do MAX_LINES řádků.
+  // Jen když je jediná věta delší než box, dělí se (nouzově) po slovech.
+  const box=$("dtext"), v=box.children, lh=parseFloat(getComputedStyle(box).lineHeight)||30;
+  const fits=t=>{ v[0].textContent=t; return box.getBoundingClientRect().height<=lh*MAX_LINES+2; };
+  v[1].textContent="";
+  const sents=text.replace(SENT_END,"$1\u0001").split("\u0001"), pages=[]; let cur="";
+  const splitWords=sent=>{ let c=""; for(const w of sent.split(/\s+/)){ const t=c?c+" "+w:w; if(c&&!fits(t)){ pages.push(c); c=w; } else c=t; } return c; };
+  for(const sn of sents){
+    const t=cur?cur+" "+sn:sn;
+    if(fits(t)){ cur=t; continue; }
+    if(cur){ pages.push(cur); cur=""; }
+    cur=fits(sn)?sn:splitWords(sn);
+  }
+  if(cur) pages.push(cur);
+  v[0].textContent="";
+  return pages.length?pages:[""];
+}
+function pagesFor(i){ return dlg.cache[i]||(dlg.cache[i]=paginate(dlg.script[i].text.replace(/Feedy/g,playerName()))); }
+function curText(){ return dlg.pages[dlg.p]; }
+function loadLine(i,p){            // p: číslo části nebo "last"
+  dlg.i=i; const L=dlg.script[i];
+  $("dlg").dataset.who=(L.who==="feedy")?"feedy":"npc";
+  $("dname").textContent=(L.who==="feedy")?playerName():(L.name||"");
+  dlg.pages=pagesFor(i); dlg.p=(p==="last")?dlg.pages.length-1:p;
+}
+function showPage(full){
+  const key=dlg.i*1000+dlg.p;
+  { const L=dlg.script[dlg.i]; if(L.sfx && dlg.p===0 && !dlg.seen.has(key)) playSE(L.sfx); }   // zvuk u repliky (např. kručení)
+  dlg.shown=(full||dlg.seen.has(key))?curText().length:0;   // už viděné části se zobrazí hned
+  dlg.seen.add(key); dlg.acc=0; setDlgText();
+  $("dback").disabled=(dlg.i===0&&dlg.p===0);
+}
+function setDlgText(){
+  const t=curText(), v=$("dtext").children;
+  v[0].textContent=t.slice(0,dlg.shown); v[1].textContent=t.slice(dlg.shown);
+  $("dbox").classList.toggle("done",dlg.shown>=t.length);
+}
+function startTalk(script,onEnd,canLeave){
+  script=script||CFG.DIALOGUE;
+  if(dlg.active||!script.length) return;
+  dlg.script=script; dlg.onEnd=onEnd||null; dlg.canLeave=!!canLeave; $("dleave").style.display=canLeave?"inline-block":"none"; dlg.active=true; dlg.cache={}; dlg.seen=new Set();
+  dlg.free=false; dlg.npc=world.chef||null;                       // během dialogu je pohyb zamčený (dlg.free=true by ho povolil)
+  if(!dlg.free){ held.clear(); pointer.active=false; }
+  $("dlg").classList.add("on"); loadLine(0,0); showPage(false);
+}
+function startChefTalk(){        // před podpisem úvodní dialog, po podpisu nový
+  if(story.orderUnlocked){ startMinigame(); return; }                  // po dialogu se u kuchařky nabízí "Objednat si"
+  if(story.signed) startTalk(CFG.DIALOGUE_AFTER,()=>{ story.orderUnlocked=true; },true);
+  else startTalk(CFG.DIALOGUE,()=>{ story.talked=true; },true);
+}
+function endTalk(){
+  const wasFree=dlg.free; dlg.free=false; dlg.npc=null;
+  dlg.active=false; $("dlg").classList.remove("on"); if(!wasFree){ held.clear(); pointer.active=false; }
+  const cb=dlg.onEnd; dlg.onEnd=null; if(cb) cb();
+}
+function advance(){                 // DÁL (mezerník, klik, E, ▶)
+  const t=curText();
+  if(dlg.shown<t.length){ dlg.shown=t.length; setDlgText(); return; }        // dopsat hned
+  if(dlg.p+1<dlg.pages.length){ uiSound("next"); dlg.p++; showPage(false); return; }          // další část repliky
+  if(dlg.i+1>=dlg.script.length){ endTalk(); return; }                     // konec dialogu
+  uiSound("next"); loadLine(dlg.i+1,0); showPage(false);                     // další replika
+}
+function leaveTalk(){              // odejít z konverzace (jen u dialogů, kde je to povoleno; ne u podepisování listiny)
+  if(!dlg.active||!dlg.canLeave) return;
+  uiSound("leave"); dlg.onEnd=null; endTalk();
+}
+function goBack(){                  // ZPĚT (←, ◀)
+  if(dlg.p>0) dlg.p--;
+  else if(dlg.i>0) loadLine(dlg.i-1,"last");
+  else return;
+  uiSound("next"); showPage(true);
+}
+function dlgTick(dt){
+  if(!dlg.active||menu.state!=="closed") return;
+  const t=curText();
+  if(dlg.shown<t.length){
+    dlg.acc+=dt*CFG.TYPE_CPS; const n=Math.min(t.length,Math.floor(dlg.acc));
+    if(n!==dlg.shown){ dlg.shown=n; setDlgText(); }
+  }
+}
+function drawPortrait(el,key){
+  const s=sprites[key]; if(!s) return;
+  const f=s.frames[Math.floor(time*CFG.ANIM_FPS)%s.frames.length];
+  const w=Math.round(f.sw), h=Math.round(f.sh);
+  if(el.width!==w||el.height!==h){ el.width=w; el.height=h; }
+  const c=el.getContext("2d"); c.imageSmoothingEnabled=false; c.clearRect(0,0,w,h);
+  c.drawImage(s.img,f.sx,f.sy,f.sw,f.sh,0,0,w,h);
+}
+
+/* ================= vstup ================= */
+const held=new Set();
+let showCollisions=false;
+const pointer={active:false,x:0,y:0};
+addEventListener("keydown",e=>{
+  if(e.target&&e.target.tagName==="INPUT"&&e.code!=="Escape") return;     // psaní jména
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) e.preventDefault();
+  if(e.code==="Escape"){
+    e.preventDefault();
+    if(!e.repeat){
+      if($("namebox").style.display==="flex") closeName();
+      else if(mode!=="play"){ if(menu.state!=="closed") menuBack(); }
+      else if(dlg.active&&dlg.canLeave&&menu.state==="closed") leaveTalk();      // ESC v dialogu = odejít (ne u listiny / minihry)
+      else if(docSt.active&&docSt.phase==="done"&&!dlg.active&&menu.state==="closed") closeDoc();
+      else menuBack();
+    }
+    return;
+  }
+  if(mode!=="play") return;
+  if(mg.active){
+    if(e.code==="KeyC") showCollisions=!showCollisions;
+    if(e.code==="Backspace"&&mg.phase===0){ e.preventDefault(); uiSound("leave"); closeMG(); }          // odejít od stolu
+    return;
+  }   // v minihře se nechodí
+  if(menu.state!=="closed") return;
+  if(prologue.active){                                                      // prolog: libovolná klávesa kromě ESC = dál
+    if(!e.repeat && !["Shift","Control","Alt","Meta","CapsLock"].includes(e.key)) prologueAdvance();
+    return;
+  }
+  if(docSt.active&&!dlg.active){ if(!e.repeat && ["Space","Enter","KeyE","ArrowRight","KeyD"].includes(e.code)) docAdvance(); return; }
+  if(dlg.active){
+    if(dlg.free){                      // rozhovor s NPC: šipky / WASD dál chodí, Space / Enter / E = dál, Backspace = odejít
+      if(!e.repeat){
+        if(["Space","Enter","KeyE"].includes(e.code)) advance();
+        else if(e.code==="Backspace"){ e.preventDefault(); leaveTalk(); }
+      }
+      if(["Space","Enter","KeyE","Backspace"].includes(e.code)) return;
+    } else {                           // dialog u listiny: pohyb zamčený
+      if(!e.repeat){
+        if(["Space","Enter","KeyE","ArrowRight","KeyD"].includes(e.code)) advance();
+        else if(["ArrowLeft","KeyA"].includes(e.code)) goBack();
+        else if(e.code==="Backspace"){ e.preventDefault(); leaveTalk(); }
+      }
+      return;
+    }
+  }
+  held.add(e.code);
+  if(e.code==="KeyC") showCollisions=!showCollisions;
+  if(e.code==="KeyE" && !e.repeat){ if(nearChef()) startChefTalk(); else if(readTarget()) openDoc(); }
+});
+addEventListener("keyup",e=>held.delete(e.code));
+addEventListener("blur",()=>{held.clear(); pointer.active=false;});
+canvas.addEventListener("pointerdown",e=>{
+  if(dlg.active&&!dlg.free){ advance(); return; }
+  pointer.active=true;pointer.x=e.clientX;pointer.y=e.clientY;
+});
+canvas.addEventListener("pointermove",e=>{pointer.x=e.clientX;pointer.y=e.clientY;});
+addEventListener("pointerup",()=>pointer.active=false);
+$("dlg").addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  if(e.target.closest("#dleave")){ leaveTalk(); return; }
+  if(e.target.closest("#dback")){ goBack(); return; }   // tlačítka: zpět / dál
+  advance();                                             // kdekoli jinde v liště: dál
+});
+$("readp").addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopPropagation(); openDoc(); });
+$("docClose").addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopPropagation(); closeDoc(); });
+$("docNext").addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopPropagation(); docAdvance(); });
+$("docSign").addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopPropagation(); doSign(); });
+$("doc").addEventListener("pointerdown",e=>{   // klik na listinu dopíše text
+  if(docSt.phase==="read"&&docSt.shown<docTotal) setDocShown(docTotal);
+});
+$("talk").addEventListener("pointerdown",e=>{ e.preventDefault(); e.stopPropagation(); startChefTalk(); });
+
+// přetažení inn.tmj do okna
+addEventListener("dragover",e=>e.preventDefault());
+addEventListener("drop",async e=>{
+  e.preventDefault();
+  const f=[...e.dataTransfer.files].find(f=>/\.(tmj|json)$/i.test(f.name));
+  if(!f) return;
+  try{ await buildWorld(JSON.parse(await f.text())); }catch(err){ warn("Soubor "+f.name+" se nepodařilo načíst: "+err.message); }
+});
+
+function readInput(){
+  if(mode!=="play"||prologue.active||mg.active||(dlg.active&&!dlg.free)||docSt.active||menu.state!=="closed") return {dx:0,dy:0};
+  let dx=0,dy=0;
+  if(held.has("ArrowLeft")||held.has("KeyA")) dx-=1;
+  if(held.has("ArrowRight")||held.has("KeyD")) dx+=1;
+  if(held.has("ArrowUp")||held.has("KeyW")) dy-=1;
+  if(held.has("ArrowDown")||held.has("KeyS")) dy+=1;
+  let lim=Infinity;
+  if(!dx&&!dy&&pointer.active){
+    // kurzor = cíl ve světě (střed těla postavy). Postava jde k němu a v cíli se zastaví,
+    // takže se nemůže třást kolem kurzoru.
+    const dpr=window.devicePixelRatio||1;
+    const wx=(pointer.x*dpr-camTx)/zoom, wy=(pointer.y*dpr-camTy)/zoom;
+    const vx=wx-player.x, vy=wy-(player.y-CFG.PLAYER_H/2), d=Math.hypot(vx,vy);
+    if(d>8){ dx=vx/d; dy=vy/d; lim=d-4; }
+  }
+  return {dx,dy,lim};
+}
+
+/* ================= update ================= */
+function npcDistCheck(){          // odejdeš-li od NPC dál než 6 dlaždic, rozhovor se zavře
+  if(dlg.active&&dlg.free&&dlg.npc&&Math.hypot(player.x-dlg.npc.x,player.y-dlg.npc.y)>CFG.TALK_LEAVE_DIST){ dlg.onEnd=null; endTalk(); }
+}
+function update(dt){
+  dlgTick(dt); docTick(dt); prologueTick(dt); fireTick(dt); npcDistCheck(); hungerTick(dt);
+  if(!world.ready) return;
+  const inp=readInput(); let {dx,dy}=inp;
+  const moving=dx!==0||dy!==0;
+  if(moving){
+    const len=Math.hypot(dx,dy); dx/=len; dy/=len;
+    const step=Math.min(CFG.SPEED*dt,inp.lim);
+    const nx=player.x+dx*step; if(!blocked(nx,player.y)) player.x=nx;
+    const ny=player.y+dy*step; if(!blocked(player.x,ny)) player.y=ny;
+    const b=world.bounds;
+    player.x=Math.min(b.x+b.w,Math.max(b.x,player.x)); player.y=Math.min(b.y+b.h,Math.max(b.y,player.y));
+    const ax=Math.abs(dx), ay=Math.abs(dy), horiz=(player.dir==="left"||player.dir==="right");
+    if(horiz){ if(ay>ax*1.3) player.dir=dy<0?"up":"down"; else if(ax>0.01) player.dir=dx<0?"left":"right"; }
+    else     { if(ax>ay*1.3) player.dir=dx<0?"left":"right"; else if(ay>0.01) player.dir=dy<0?"up":"down"; }
+  }
+  const state=moving?"run "+player.dir:"stand";
+  if(state!==player.state){ player.state=state; player.t=0; }
+  player.moving=moving;
+  player.t+=dt;
+}
+
+/* ================= kreslení ================= */
+let time=0, zoom=2, camX=0, camY=0;
+function resize(){
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=Math.round(innerWidth*dpr); canvas.height=Math.round(innerHeight*dpr);
+  applyZoom();
+}
+addEventListener("resize",resize); resize();
+
+let camTx=0, camTy=0;
+// part: "all" | "lower" (nohy, spodní půlka) | "upper" (horní půlka)
+function drawEntity(key,x,y,t,part){
+  const px=Math.round(x), py=Math.round(y);
+  const s=sprites[key]||sprites["stand"];
+  const split=part==="lower"||part==="upper";
+  if(split){
+    const sp=py-Math.round(CFG.PLAYER_H*0.5);
+    ctx.save(); ctx.beginPath();
+    if(part==="lower") ctx.rect(px-300,sp,600,600); else ctx.rect(px-300,sp-600,600,600);
+    ctx.clip();
+  }
+  if(!s){ ctx.fillStyle=key==="chef"?"#6bb":"#e0a84a"; ctx.fillRect(px-12,py-CFG.PLAYER_H,24,CFG.PLAYER_H); }
+  else {
+    ctx.fillStyle="rgba(0,0,0,.28)"; ctx.beginPath(); ctx.ellipse(px,py-2,CFG.FEET_W*0.75,4,0,0,Math.PI*2); ctx.fill();
+    const f=s.frames[Math.floor(t*CFG.ANIM_FPS)%s.frames.length];
+    const dw=f.sw*s.scale, dh=f.sh*s.scale;
+    ctx.drawImage(s.img,f.sx,f.sy,f.sw,f.sh,Math.round(px-dw/2),Math.round(py-dh+2),Math.round(dw),Math.round(dh));
+  }
+  if(split) ctx.restore();
+}
+
+// Hloubkové řazení postav a dlaždic nad podlahou. Pro každou dlaždici a postavu platí:
+//  - základna dlaždice je nad nohama postavy            -> dlaždice je ZA postavou
+//  - dlaždice je níž a postava stojí přímo za ní         -> dlaždice ji PŘEKRYJE (horní části objektů)
+//  - dlaždice je níž, ale po BOKU postavy (nohy mimo její sloupce, sprite se jí dotýká)
+//        -> nohy (spodní půlka) jsou pod objektem, horní půlka postavy je nad objektem
+function drawWorldEntities(){
+  const mk=(x,y,key,tm)=>({x,y,draw:part=>drawEntity(key,x,y,tm,part)});
+  const ents=[mk(player.x,player.y,player.state,player.t)];
+  if(world.chef) ents.push(mk(world.chef.x,world.chef.y,"chef",time));
+  ents.sort((a,b)=>a.y-b.y);
+  const tiles=world.sortedTiles||[], hw=CFG.FEET_W/2, sw=CFG.PLAYER_H*0.4;
+  const pre=ents.map(()=>[]), mid=ents.map(()=>[]), fin=[];
+  for(const t of tiles){
+    let placed=false;
+    for(let k=0;k<ents.length;k++){
+      const e=ents[k];
+      if(t.base<=e.y){ pre[k].push(t); placed=true; break; }                          // za postavou
+      const overFeet=(e.x+hw>t.x && e.x-hw<t.x+t.w);
+      if(overFeet) continue;                                                           // před postavou
+      const touches=(e.x+sw>t.x && e.x-sw<t.x+t.w && t.y<e.y && t.y+t.h>e.y-CFG.PLAYER_H);
+      if(touches){ mid[k].push(t); placed=true; break; }                              // po boku
+      pre[k].push(t); placed=true; break;                                             // daleko: nezáleží
+    }
+    if(!placed) fin.push(t);
+  }
+  const drawBucket=arr=>{
+    for(const t of arr){
+      if(t.op!==1) ctx.globalAlpha=t.op;
+      world.drawGid(ctx,t.gid,t.x,t.y,t.w,t.h);
+      if(t.op!==1) ctx.globalAlpha=1;
+    }
+  };
+  ents.forEach((e,k)=>{
+    drawBucket(pre[k]);
+    if(mid[k].length){ e.draw("lower"); drawBucket(mid[k]); e.draw("upper"); }
+    else e.draw("all");
+  });
+  drawBucket(fin);
+}
+
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle="#0b0a10"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(!world.ready) return;
+  const vw=canvas.width/zoom, vh=canvas.height/zoom, b=world.bounds, m=24;
+  const cx=(vw>=b.w+2*m)?b.x+b.w/2:Math.min(b.x+b.w+m-vw/2,Math.max(b.x-m+vw/2,player.x));
+  const cy=(vh>=b.h+2*m)?b.y+b.h/2:Math.min(b.y+b.h+m-vh/2,Math.max(b.y-m+vh/2,player.y-CFG.PLAYER_H/2));
+  const tx=Math.round(canvas.width/2-cx*zoom), ty=Math.round(canvas.height/2-cy*zoom);
+  camTx=tx; camTy=ty;
+  ctx.setTransform(zoom,0,0,zoom,tx,ty);
+  ctx.imageSmoothingEnabled=false;
+  const frameBase=Math.floor(time*CFG.FIRE_FPS);
+  for(const s of world.steps){
+    if(s.type==="cache") ctx.drawImage(s.canvas,s.bx,s.by);
+    else if(s.type==="objects"){
+      for(const o of s.objs) s.draw(ctx,o.gid,o.x,o.y-o.height,o.width,o.height,frameBase+o.id);
+    } else if(s.type==="player") drawWorldEntities();
+  }
+  if(showCollisions){
+    ctx.fillStyle="rgba(255,40,40,.35)"; ctx.strokeStyle="rgba(255,80,80,.9)"; ctx.lineWidth=1/zoom*2;
+    for(const r of world.solids){ ctx.fillRect(r.x,r.y,r.w,r.h); ctx.strokeRect(r.x,r.y,r.w,r.h); }
+    ctx.fillStyle="rgba(60,255,120,.3)"; ctx.strokeStyle="rgba(60,255,120,.9)";
+    for(const r of world.interactions||[]){ ctx.fillRect(r.x,r.y,r.w,r.h); ctx.strokeRect(r.x,r.y,r.w,r.h); }
+    ctx.strokeStyle="#4af"; ctx.strokeRect(player.x-CFG.FEET_W/2,player.y-CFG.FEET_H,CFG.FEET_W,CFG.FEET_H);
+  }
+  updateUI();
+}
+
+function updateUI(){
+  const el=$("talk");
+  const lbl=story.orderUnlocked?"<b>E</b> · Objednat si":"<b>E</b> · Mluvit";
+  if(el.dataset.l!==lbl){ el.dataset.l=lbl; el.innerHTML=lbl; }
+  if(!dlg.active && nearChef()){
+    const dpr=window.devicePixelRatio||1;
+    el.style.display="block";
+    el.style.left=(camTx+world.chef.x*zoom)/dpr+"px";
+    el.style.top=(camTy+(world.chef.y-CFG.PLAYER_H-6)*zoom)/dpr+"px";
+  } else el.style.display="none";
+  const rp=$("readp"), rt=(!dlg.active&&!docSt.active&&!nearChef())?readTarget():null;
+  if(rt){
+    const dpr=window.devicePixelRatio||1;
+    rp.style.display="block";
+    rp.style.left=(camTx+(rt.x+rt.w/2)*zoom)/dpr+"px";
+    rp.style.top=(camTy+(rt.y-6)*zoom)/dpr+"px";
+  } else rp.style.display="none";
+  if(dlg.active){   // vlevo se zobrazuje jen ta postava, která právě mluví
+    const sheet={feedy:"stand",chef:"chef"}[dlg.script[dlg.i].who]||"stand";
+    drawPortrait($("pL"),sheet);
+  }
+}
+
+let last=performance.now();
+let running=true;
+function loop(now){
+  if(!running) return;
+  const dt=Math.min(0.05,(now-last)/1000); last=now; time+=dt;
+  update(dt); if(mg.active) renderMG(dt); else render(); if(mode==="title") renderTitle(); requestAnimationFrame(loop);
+}
+
+/* ================= hudba ================= */
+const TRACKS=["Embers in the Wind","Enter the Traveling Beauty","Mysterious Beauty","Raise a Glass and Raise it High",
+  "Song of the Far Realm","Spirits in the Wind","Tales of the Dragon","The Dancing Barmaid"];
+const AUDIO_EXTS=["ogg","OGG","mp3","MP3","wav","m4a","flac","opus","aac"];
+const music={audio:new Audio(),order:[],pos:-1,urls:{},blocked:false,busy:false,paused:false,warned:false,fadeMul:1,fadeT:0};
+music.audio.preload="auto";
+const musicVol=()=>Math.min(1,Math.max(0,SETTINGS.music/100));
+function applyMusicVol(){ music.audio.volume=Math.min(1,Math.max(0,musicVol()*music.fadeMul)); }
+const inPrologue=()=>prologue.active&&!prologue.fading;       // během prologu hudba nehraje (při závěrečném prolnutí už ano)
+function reshuffle(){
+  const a=TRACKS.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  if(music.order.length && a.length>1 && a[0]===music.order[music.order.length-1]) [a[0],a[1]]=[a[1],a[0]];
+  music.order=a; music.pos=-1;
+}
+function probe(url){
+  return new Promise(res=>{
+    const a=new Audio(); let t;
+    const done=ok=>{ clearTimeout(t); a.onloadedmetadata=a.onerror=null; res(ok); };
+    a.onloadedmetadata=()=>done(true); a.onerror=()=>done(false);
+    t=setTimeout(()=>done(false),6000); a.preload="metadata"; a.src=url;
+  });
+}
+async function resolveTrack(title){
+  if(music.urls[title]!==undefined) return music.urls[title];
+  const names=[...new Set([title,title.toLowerCase(),title.replace(/ /g,"_"),title.replace(/ /g,"-"),title.replace(/ /g,"")])];
+  for(const n of names) for(const e of AUDIO_EXTS){
+    const u=encodeURI(CFG.MUSIC_DIR+n+"."+e);
+    if(await probe(u)) return (music.urls[title]=u);
+  }
+  return (music.urls[title]=null);
+}
+const windowActive=()=>!document.hidden && document.hasFocus();
+async function tryPlay(){
+  if(mode!=="play"||inPrologue()) return;                     // v hlavní nabídce a během prologu hudba nehraje
+  if(!windowActive()){ music.focusPaused=true; return; }      // v pozadí se nehraje
+  try{ await music.audio.play(); music.blocked=false; music.paused=false; }
+  catch(e){ music.blocked=true; }
+}
+async function playNext(){
+  if(music.busy) return; music.busy=true;
+  try{
+    for(let tries=0;tries<TRACKS.length*2;tries++){
+      if(music.pos+1>=music.order.length) reshuffle();
+      const t=music.order[++music.pos], u=await resolveTrack(t);
+      if(!u) continue;
+      music.audio.src=u; applyMusicVol();
+      if(SETTINGS.music<=0){ music.paused=true; return; }
+      await tryPlay(); return;
+    }
+    if(!music.warned){ music.warned=true; warn("Nenašel jsem žádnou skladbu ve složce <code>"+CFG.MUSIC_DIR+"</code> (hledám např. <code>Embers in the Wind.mp3</code>)."); }
+  } finally { music.busy=false; }
+}
+music.audio.onended=()=>playNext();
+music.audio.onerror=()=>{ if(music.audio.getAttribute("src")) playNext(); };
+function setMusicVolume(v){
+  SETTINGS.music=v; applyMusicVol(); saveSettings();
+  if(v<=0){ music.audio.pause(); music.paused=true; }
+  else if(music.paused){ music.paused=false; if(music.audio.getAttribute("src")) tryPlay(); else playNext(); }
+}
+function unlockMusic(){
+  if(mode!=="play"||inPrologue()||SETTINGS.music<=0) return;
+  if(music.blocked && music.audio.getAttribute("src")) tryPlay();
+  else if(!music.audio.getAttribute("src") && !music.busy) playNext();
+}
+addEventListener("pointerdown",unlockMusic); addEventListener("keydown",unlockMusic);
+function syncAudioFocus(){        // hudba hraje jen když má hráč okno otevřené a v popředí
+  if(!windowActive()){
+    if(!music.audio.paused){ music.audio.pause(); music.focusPaused=true; }
+    firePauseAll();
+  } else if(music.focusPaused){
+    music.focusPaused=false;
+    if(SETTINGS.music>0 && music.audio.getAttribute("src") && running) tryPlay();
+    else if(SETTINGS.music>0 && !music.busy && !music.audio.getAttribute("src")) playNext();
+  }
+}
+document.addEventListener("visibilitychange",syncAudioFocus);
+addEventListener("blur",syncAudioFocus); addEventListener("focus",syncAudioFocus);
+
+/* ================= zvukové efekty: krb ================= */
+const fire={a:new Audio(),b:new Audio(),url:undefined,vol:0,tryT:0};
+fire.cur=fire.a; fire.nxt=fire.b;
+for(const el of [fire.a,fire.b]){ el.preload="auto"; el.volume=0; }
+async function fireInit(){
+  for(const n of ["fireplace","Fireplace","fire","fireplace1"]) for(const e of AUDIO_EXTS){
+    const u=encodeURI(CFG.SOUNDS_DIR+n+"."+e);
+    if(await probe(u)){ fire.url=u; fire.a.src=u; fire.b.src=u; return; }
+  }
+  fire.url=null; warn("Nenašel jsem zvuk <b>fireplace.mp3</b> ve složce <code>"+CFG.SOUNDS_DIR+"</code>.");
+}
+function firePauseAll(){ fire.a.pause(); fire.b.pause(); }
+function fireTarget(){            // hlasitost podle vzdálenosti od krbu (0 = neslyšet)
+  if(mode!=="play"||prologue.active||mg.active||!world.fireSources||!world.fireSources.length||SETTINGS.sfx<=0) return 0;
+  let d=Infinity;
+  for(const f of world.fireSources) d=Math.min(d,Math.hypot(player.x-f.x,player.y-f.y));
+  const t=Math.min(1,Math.max(0,(CFG.FIRE_FAR-d)/(CFG.FIRE_FAR-CFG.FIRE_NEAR)));
+  return t*t*(SETTINGS.sfx/100);
+}
+function fireTick(dt){
+  if(!fire.url) return;
+  if(!windowActive()){ firePauseAll(); return; }
+  const target=fireTarget();
+  fire.vol+=(target-fire.vol)*Math.min(1,dt*5);                // plynulé zesilování / zeslabování
+  if(Math.abs(target-fire.vol)<0.0005) fire.vol=target;
+  let cur=fire.cur, nxt=fire.nxt, curF=1, nxtF=0;
+  if(mode==="play" && cur.paused){                              // (znovu) spustit; před prvním klikem to prohlížeč odmítne
+    fire.tryT-=dt; if(fire.tryT<=0){ fire.tryT=0.5; cur.play().catch(()=>{}); }
+  }
+  const dur=cur.duration;
+  if(isFinite(dur)){
+    if(dur<=CFG.FIRE_XFADE*2){ cur.loop=true; }
+    else{
+      const left=dur-cur.currentTime;
+      if(!cur.paused && left<=CFG.FIRE_XFADE){                 // prolnutí konce se začátkem
+        if(nxt.paused){ nxt.currentTime=0; nxt.play().catch(()=>{}); }
+        const t=Math.min(1,Math.max(0,1-left/CFG.FIRE_XFADE));
+        curF=Math.cos(t*Math.PI/2); nxtF=Math.sin(t*Math.PI/2);
+      }
+      if(cur.ended || (!cur.paused && left<=0.03 && !nxt.paused)){
+        cur.pause(); cur.currentTime=0; fire.cur=nxt; fire.nxt=cur; cur=fire.cur; nxt=fire.nxt; curF=1; nxtF=0;
+      }
+    }
+  }
+  const cl=v=>Math.min(1,Math.max(0,v));
+  cur.volume=cl(fire.vol*curF); nxt.volume=cl(fire.vol*nxtF);
+}
+
+/* ================= klik tlačítek ================= */
+let actx=null;
+function uiSound(kind){            // syntetické UI zvuky (tiché a krátké); hlasitost podle posuvníku efektů
+  if(SETTINGS.sfx<=0||!windowActive()) return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==="suspended") actx.resume();
+    const t=actx.currentTime, v=SETTINGS.sfx/100;
+    const tone=(f0,f1,t0,dur,type,gain)=>{
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.type=type; o.frequency.setValueAtTime(f0,t+t0); if(f1!==f0) o.frequency.exponentialRampToValueAtTime(f1,t+t0+dur);
+      g.gain.setValueAtTime(0.0001,t+t0); g.gain.linearRampToValueAtTime(gain*v,t+t0+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+t0+dur);
+      o.connect(g).connect(actx.destination); o.start(t+t0); o.stop(t+t0+dur+0.02);
+    };
+    const noise=(t0,dur,ftype,fa,fb,gain)=>{
+      const n=actx.createBuffer(1,Math.floor(actx.sampleRate*dur),actx.sampleRate), d=n.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+      const s=actx.createBufferSource(), f=actx.createBiquadFilter(), g=actx.createGain();
+      f.type=ftype; f.frequency.setValueAtTime(fa,t+t0); f.frequency.exponentialRampToValueAtTime(fb,t+t0+dur);
+      g.gain.value=gain*v; s.buffer=n; s.connect(f).connect(g).connect(actx.destination); s.start(t+t0);
+    };
+    switch(kind){
+      case "next":  tone(880,700,0,0.05,"sine",0.07); break;                                        // přeskok v dialogu
+      case "leave": tone(440,330,0,0.09,"triangle",0.13); tone(330,220,0.08,0.14,"triangle",0.11); break;   // přerušení dialogu / konec hry
+      case "start": [392,523,659,784].forEach((f,i)=>tone(f,f,i*0.08,0.14,"triangle",0.15)); break;  // start hry
+      case "title": noise(0,0.2,"lowpass",2000,300,0.16); tone(220,140,0,0.16,"sine",0.11); break;   // zpět do hlavní nabídky
+      case "sign":  noise(0,0.05,"bandpass",3200,2600,0.1); noise(0.07,0.05,"bandpass",3000,2400,0.1); noise(0.14,0.06,"bandpass",3400,2200,0.1); tone(150,110,0.22,0.1,"sine",0.12); break;  // podpis
+      default:      tone(540,170,0,0.08,"square",0.18); noise(0,0.03,"lowpass",1800,1800,0.15);       // běžné tlačítko
+    }
+  }catch(e){}
+}
+const uiClick=()=>uiSound("click");
+const SILENT_BTN=new Set(["nameOk","docSign","exitbtn","tExit","mgLeave"]);   // mají vlastní zvuk z funkce
+document.addEventListener("pointerdown",e=>{
+  const b=e.target.closest&&e.target.closest(".px,#talk,#readp");       // tlačítka dialogu (.dnav) zvuk nemají
+  if(!b||b.disabled||SILENT_BTN.has(b.id)) return;
+  uiSound(b.id==="toTitle"?"title":"click");
+},true);
+
+/* ================= menu ================= */
+const menu={state:"closed",root:"opts"};   // closed | main | opts | video | sounds | zoom   (root = kam vede "Zpět" z Video/Zvuk)
+function fillRange(el){ el.style.setProperty("--p",((el.value-el.min)/(el.max-el.min)*100)+"%"); }
+function syncZoomUI(){
+  const L=zoomLimits();
+  const t=SETTINGS.zoomT!=null?SETTINGS.zoomT:Math.log(L.def/L.minZ)/Math.log(L.maxZ/L.minZ);
+  const r=$("zoomRange"); r.value=Math.round(t*100); fillRange(r);
+  $("zoomVal").textContent=Math.round(zoomCss/L.def*100)+"%";
+}
+function setMenu(st){
+  menu.state=st;
+  const inMenu=(st==="main"||st==="opts"||st==="video"||st==="sounds");
+  $("menu").style.display=inMenu?"flex":"none";
+  $("zoomui").style.display=(st==="zoom")?"block":"none";
+  for(const [id,name] of [["mmain","main"],["mopts","opts"],["mvideo","video"],["msounds","sounds"]]) $(id).style.display=(st===name)?"flex":"none";
+  $("mtitle").textContent={main:"Nastavení",opts:"Nastavení",video:"Video",sounds:"Zvuk"}[st]||"";
+  $("title").style.visibility=(st==="zoom"&&mode==="title")?"hidden":"visible";   // z hlavní nabídky se zoom ukáže na místnosti
+  if(st!=="closed"){ held.clear(); pointer.active=false; }
+  if(st==="zoom") syncZoomUI();
+}
+function menuBack(){
+  const next={closed:(mode==="play"?"main":"closed"),main:"closed",opts:"closed",video:menu.root,sounds:menu.root,zoom:"video"}[menu.state];
+  setMenu(next);
+}
+function exitGame(){
+  uiSound("leave");
+  running=false; music.audio.pause(); firePauseAll(); setMenu("closed"); held.clear();
+  $("bye").style.display="flex";
+  try{ window.close(); }catch(e){}     // zavře se jen pokud to prohlížeč dovolí; jinak zůstane obrazovka "Game closed"
+}
+document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>setMenu(b.dataset.go==="root"?menu.root:b.dataset.go)));
+$("mclose").addEventListener("click",()=>setMenu("closed"));
+$("exitbtn").addEventListener("click",exitGame);
+$("camBtn").addEventListener("click",()=>setMenu("zoom"));
+$("zoomDone").addEventListener("click",()=>setMenu("video"));
+$("gear").addEventListener("click",()=>{ if(mode!=="play") return; menu.root="main"; setMenu(menu.state==="closed"?"main":"closed"); });
+$("gear").addEventListener("pointerdown",e=>e.stopPropagation());
+$("zoomRange").addEventListener("input",e=>{
+  SETTINGS.zoomT=e.target.value/100; applyZoom(); fillRange(e.target);
+  $("zoomVal").textContent=Math.round(zoomCss/zoomLimits().def*100)+"%"; saveSettings();
+});
+$("zoomReset").addEventListener("click",()=>{ SETTINGS.zoomT=null; applyZoom(); syncZoomUI(); saveSettings(); });
+$("musRange").addEventListener("input",e=>{
+  const v=+e.target.value; $("musVal").textContent=v===0?"VYP":v+"%"; fillRange(e.target); setMusicVolume(v);
+});
+$("sfxRange").addEventListener("input",e=>{
+  const v=+e.target.value; SETTINGS.sfx=v; $("sfxVal").textContent=v===0?"VYP":v+"%"; fillRange(e.target); saveSettings();
+});
+(function initMenuValues(){
+  const q=$("sfxRange"); q.value=SETTINGS.sfx; fillRange(q); $("sfxVal").textContent=SETTINGS.sfx===0?"VYP":SETTINGS.sfx+"%";
+  const r=$("musRange"); r.value=SETTINGS.music; fillRange(r); $("musVal").textContent=SETTINGS.music===0?"VYP":SETTINGS.music+"%";
+})();
+(function drawGear(){     // pixel ozubené kolo
+  const c=$("gearcv").getContext("2d"), N=18, mask=[];
+  for(let y=0;y<N;y++){ mask[y]=[]; for(let x=0;x<N;x++){
+    const dx=x+.5-N/2, dy=y+.5-N/2, r=Math.hypot(dx,dy), a=Math.atan2(dy,dx);
+    mask[y][x]=((r<=5.3)||(r<=7.7&&Math.cos(8*a)>0.1))&&r>2.4;
+  }}
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    if(mask[y][x]){ c.fillStyle=(x+y<N)?"#ffd98a":"#d9a14a"; c.fillRect(x,y,1,1); }
+    else if([[1,0],[-1,0],[0,1],[0,-1]].some(([ox,oy])=>mask[y+oy]&&mask[y+oy][x+ox])){ c.fillStyle="#1a0a06"; c.fillRect(x,y,1,1); }
+  }
+})();
+
+/* ================= zvuky SE (sounds/se/) ================= */
+const SE_GROUPS={
+  sburp:[1,2,3,4,5,6,7].map(i=>"sburp"+i),
+  lburp:[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(i=>"lburp"+i),
+  swallow:["swallow"],
+  drink:["gulp in belly","gulp8","2 gulps"],     // zatím se nepoužívá (pití přijde později): playSE("drink")
+  growl:["growl1","growl2"],
+  belly:["dbelly1","dbelly2","dbelly3","ebelly1","ebelly2"]   // zvuky břicha při krmení (nepřekrývají se)
+};                                                // mburp se zatím nepřehrává
+const seCache={}, seLast={chew:-1e9,sburp:-1e9,lburp:-1e9};
+async function seUrl(name){
+  if(seCache[name]!==undefined) return seCache[name];
+  for(const e of ["ogg","wav","mp3","OGG","WAV"]){
+    const u=encodeURI(CFG.SOUNDS_DIR+"se/"+name+"."+e);
+    if(await probe(u)) return (seCache[name]=u);
+  }
+  return (seCache[name]=null);
+}
+const seBusy={};
+async function playSE(group,vol,exclusive){
+  if(SETTINGS.sfx<=0||!windowActive()) return;
+  const list=SE_GROUPS[group]; if(!list) return;
+  if(exclusive){ if(seBusy[group]) return; seBusy[group]=true; }       // exclusive: dokud předchozí zvuk nedohraje, další se nespustí
+  const free=()=>{ seBusy[group]=false; };
+  const u=await seUrl(list[Math.floor(Math.random()*list.length)]);
+  if(!u){ if(exclusive) free(); return; }
+  const a=new Audio(u); a.volume=Math.min(1,Math.max(0,SETTINGS.sfx/100*(vol==null?0.9:vol)));
+  if(exclusive){ a.onended=free; a.onerror=free; setTimeout(free,10000); }
+  a.play().catch(()=>{ if(exclusive) free(); });
+}
+function hungerTick(dt){           // po 5 minutách bez jídla břicho kručí (max. 1x za minutu)
+  if(mode!=="play"||prologue.active||mg.active||!windowActive()) return;
+  story.hungerT+=dt;
+  if(story.hungerT>=CFG.HUNGER_SEC){ story.growlCd-=dt; if(story.growlCd<=0){ playSE("growl"); story.growlCd=CFG.GROWL_GAP; } }
+}
+function eatSounds(count){         // vrací "sburp"/"lburp", pokud se má říhnout (jen vzácně a až po prvních jídlech)
+  const S=CFG.SE; let burp=null;
+  if(count>S.burpAfter){
+    const now=performance.now()/1000;
+    if(Math.random()<S.sburpChance && now-seLast.sburp>S.sburpGap){ seLast.sburp=now; seLast.lburp=Math.max(seLast.lburp,now-S.lburpGap+6); burp="sburp"; }
+    else if(Math.random()<S.lburpChance && now-seLast.lburp>S.lburpGap){ seLast.lburp=now; burp="lburp"; }
+  }
+  if(!burp && Math.random()<S.bellyChance) playSE("belly",S.bellyVol,true);      // zvuk břicha jen občas, potichu a ne spolu s říhnutím
+  return burp;
+}
+/* ================= minihra: krmení ================= */
+const FOOD_NAMES=["Bacon","Boar","Brownie","Cookie","Eggs","Chicken","ChickenLeg","Jerky","PieApple","PiePumpkin","Pretzel","Ribs","Sashimi","Sausages","Shrimp","Steak","Sushi","Waffles"];  // Beer = pití, přijde později
+const mg={active:false,loading:false,ready:false,pendingBurp:null,bg:null,foods:{},tableTex:null,slots:[],drag:null,count:0,state:"stuff",t:0,phase:0,phaseT:0,L:null,warned:false};
+function makeTableTex(){           // pixel textura dřevěného stolu
+  const W=60,H=18,c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d");
+  let seed=77; const rnd=()=>(seed=(seed*1664525+1013904223)>>>0)/4294967296;
+  g.fillStyle="#2a170b"; g.fillRect(0,0,W,H);
+  const plank=["#9a6a3c","#8d5f34","#a4743f","#94653a"];
+  for(let y=2;y<H-2;y+=5){
+    g.fillStyle=plank[Math.floor(rnd()*plank.length)]; g.fillRect(2,y,W-4,4);
+    g.fillStyle="#6b4325"; g.fillRect(2,y+4,W-4,1);
+    g.fillStyle="rgba(255,225,170,.28)"; g.fillRect(2,y,W-4,1);
+    for(let k=0;k<4;k++){ g.fillStyle="rgba(70,40,18,.35)"; g.fillRect(2+Math.floor(rnd()*(W-8)),y+1+Math.floor(rnd()*3),2+Math.floor(rnd()*4),1); }
+  }
+  g.fillStyle="#c58c4a"; g.fillRect(1,1,W-2,1);
+  return c;
+}
+async function loadMGAssets(){
+  if(mg.ready) return;
+  const bg=await tryLoad(candidates(nameVariants("stuffing room"),[CFG.PICTURES_DIR+"bg/",CFG.PICTURES_DIR]));
+  if(bg) mg.bg=bg.img; else warn("Nenašel jsem pozadí <b>stuffing room</b> ve složce <code>"+CFG.PICTURES_DIR+"bg/</code>.");
+  for(const n of FOOD_NAMES){
+    const r=await tryLoad(candidates(nameVariants(n),[CFG.PICTURES_DIR+"food/"]));
+    if(r) mg.foods[n]=r.img;
+  }
+  if(!Object.keys(mg.foods).length) warn("Nenašel jsem obrázky jídla ve složce <code>"+CFG.PICTURES_DIR+"food/</code>.");
+  mg.tableTex=makeTableTex(); mg.ready=true;
+}
+function pickFood(){
+  const have=new Set(mg.slots.map(s=>s.food)), all=Object.keys(mg.foods);
+  if(!all.length) return null;
+  const free=all.filter(f=>!have.has(f)), pool=free.length?free:all;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function mgUpdateUI(){}           // počítadlo se nezobrazuje
+async function startMinigame(){
+  if(mg.active||mg.loading) return;
+  mg.loading=true; await loadMGAssets(); mg.loading=false;
+  if((!sprites.stuffing||!sprites.eat)&&!mg.warned){ mg.warned=true; warn("Chybí animace <b>stuffing</b> / <b>eat</b> ve složce <code>"+CFG.PICTURES_DIR+"stage"+CFG.STAGE+"/</code>."); }
+  mg.active=true; mg.pendingBurp=null; mg.count=0; mg.state="stuff"; mg.t=0; mg.phase=0; mg.phaseT=0; mg.drag=null;
+  mg.slots=[0,1,2,3].map(()=>({food:null,pop:0,respawn:0,ret:null}));
+  mg.slots.forEach((s,i)=>{ s.food=pickFood(); s.pop=-i*0.12; });
+  held.clear(); pointer.active=false;
+  $("talk").style.display="none"; $("readp").style.display="none";
+  $("mgcv").style.display="block"; $("mgLeave").style.display="block";
+}
+function closeMG(){ mg.active=false; mg.drag=null; $("mgcv").style.display="none"; $("mgLeave").style.display="none"; }
+async function finishMG(){         // konec minihry: návrat do hostince, postava přechází na stage 2
+  closeMG(); story.hungerT=0; story.growlCd=0;
+  await setStage(2); player.state="stand"; player.t=0;
+  if(!story.stage2Talk){ story.stage2Talk=true; startTalk(CFG.DIALOGUE_STAGE2,null,true); }   // krátký dialog po první přeměně
+}
+function mgFeed(i){
+  const s=mg.slots[i]; s.food=null; s.respawn=0.35; s.ret=null;
+  mg.count++; story.hungerT=0; story.growlCd=0;
+  mg.state="eat"; mg.t=0; mgUpdateUI(); mg.pendingBurp=eatSounds(mg.count);   // říhnutí (zvuk + animace) přijde po dojezení animace jezení
+  if(mg.count>=CFG.MG_GOAL){ mg.phase=1; mg.pendingBurp=null; }                              // čeká se na dohrání animace jezení
+}
+function mgLayout(w,h,f){
+  const sc=h/f.sh*CFG.MG_CHAR_SCALE, dw=f.sw*sc, dh=f.sh*sc, dx=(w-dw)/2, dy=-(dh-h)*0.3;   // postava přes celou obrazovku (a kousek navíc)
+  const tw=Math.min(w*0.34,h*0.62), th=tw*0.3, tx=w-tw-w*0.02, ty=h-th-h*0.03, isz=tw*0.19;
+  const pos=[0.13,0.38,0.62,0.87].map(a=>({x:tx+tw*a,y:ty+th*0.5}));      // všechna jídla vedle sebe v jedné řadě
+  const M=CFG.MG_MOUTH;
+  return {sc,dw,dh,dx,dy,tw,th,tx,ty,isz,pos,mouth:{x:dx+dw*M.x0,y:dy+dh*M.y0,w:dw*(M.x1-M.x0),h:dh*(M.y1-M.y0)},
+    body:{x:dx+dw*CFG.MG_BODY.x0,y:dy+dh*CFG.MG_BODY.y0,w:dw*(CFG.MG_BODY.x1-CFG.MG_BODY.x0),h:dh*(CFG.MG_BODY.y1-CFG.MG_BODY.y0)}};
+}
+function mgInBody(p){ const b=mg.L&&mg.L.body; return !!b&&p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h; }
+function mgPoke(){                 // klik na postavu: říhnutí (zvuk + animace burp); nejde spamovat, dokud animace nedoběhne
+  const kind=Math.random()<0.75?"sburp":"lburp";
+  if(mg.state==="stuff"){ mg.state="burp"; mg.t=0; playSE(kind); }
+  else if(mg.state==="eat" && !mg.pendingBurp) mg.pendingBurp=kind;     // během jezení se říhnutí zařadí až po dojezení
+}
+function renderMG(dt){
+  const c=$("mgcv"), dpr=window.devicePixelRatio||1, w=Math.round(innerWidth*dpr), h=Math.round(innerHeight*dpr);
+  if(c.width!==w||c.height!==h){ c.width=w; c.height=h; }
+  const g=c.getContext("2d"); g.imageSmoothingEnabled=false;
+  const paused=menu.state!=="closed";
+  if(!paused) mg.t+=dt;
+  const eatS=sprites.eat, stfS=sprites.stuffing, burpS=sprites.burp, ovS=sprites.overstuffed;
+  const lenOf=(sp,fps,fb)=>sp?sp.frames.length/fps:fb;
+  const eatLen=lenOf(eatS,CFG.MG_EAT_FPS,0.6), overLen=lenOf(ovS,CFG.MG_OVER_FPS,1.2);
+  if(mg.state==="eat" && mg.t>=eatLen){
+    if(mg.phase===1){ mg.phase=2; mg.phaseT=0; mg.state="over"; mg.t=0; playSE("swallow",1); }       // poslední sousto -> polknutí + overstuffed
+    else if(mg.pendingBurp){ const k=mg.pendingBurp; mg.pendingBurp=null; mg.state="burp"; mg.t=0; playSE(k); }   // říhnutí + animace burp zároveň
+    else { mg.state="stuff"; mg.t=0; }
+  } else if(mg.state==="burp" && mg.t>=lenOf(burpS,CFG.MG_BURP_FPS,1.2)){ mg.state="stuff"; mg.t=0; }
+  if(!paused && mg.phase>=2){
+    mg.phaseT+=dt;
+    if(mg.phase===2 && mg.phaseT>overLen+0.7){ mg.phase=3; mg.phaseT=0; }
+    else if(mg.phase===3 && mg.phaseT>0.8){ mg.phase=4; finishMG(); return; }
+  }
+  // snímek postavy
+  let sp=stfS, fps=CFG.MG_STUFF_FPS, loop=true;
+  if(mg.state==="eat"){ sp=eatS; fps=CFG.MG_EAT_FPS; }
+  else if(mg.state==="burp"){ sp=burpS; fps=CFG.MG_BURP_FPS; loop=false; }
+  else if(mg.state==="over"){ sp=ovS; fps=CFG.MG_OVER_FPS; loop=false; }
+  sp=sp||stfS||eatS;
+  let f={sx:0,sy:0,sw:320,sh:768};
+  if(sp){ const n=sp.frames.length, idx=Math.floor(mg.t*fps); f=sp.frames[loop?idx%n:Math.min(idx,n-1)]; }
+  const L=mg.L=mgLayout(w,h,f);
+  // pozadí
+  g.fillStyle="#2a1d33"; g.fillRect(0,0,w,h);
+  if(mg.bg){ const sc=Math.max(w/mg.bg.width,h/mg.bg.height), dw=mg.bg.width*sc, dh=mg.bg.height*sc;
+    g.drawImage(mg.bg,Math.round((w-dw)/2),Math.round((h-dh)/2),Math.round(dw),Math.round(dh)); }
+  // postava
+  if(sp) g.drawImage(sp.img,f.sx,f.sy,f.sw,f.sh,Math.round(L.dx),Math.round(L.dy),Math.round(L.dw),Math.round(L.dh));
+  else { g.fillStyle="#e0a84a"; g.fillRect(L.dx+L.dw*0.25,h*0.05,L.dw*0.5,h*0.9); }
+  // stůl
+  g.fillStyle="rgba(0,0,0,.35)"; g.fillRect(Math.round(L.tx+L.tw*0.03),Math.round(L.ty+L.th*0.06),Math.round(L.tw),Math.round(L.th));
+  if(mg.tableTex) g.drawImage(mg.tableTex,Math.round(L.tx),Math.round(L.ty),Math.round(L.tw),Math.round(L.th));
+  // jídla
+  const ease=t=>{ t=Math.min(1,Math.max(0,t)); const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); };
+  mg.slots.forEach((s,i)=>{
+    if(!paused){
+      if(!s.food&&s.respawn>0){ s.respawn-=dt; if(s.respawn<=0){ s.food=pickFood(); s.pop=0; } }
+      if(s.food&&s.pop<1) s.pop=Math.min(1,s.pop+dt*4);
+      if(s.ret){ const hp=L.pos[i], k=Math.min(1,dt*14); s.ret.x+=(hp.x-s.ret.x)*k; s.ret.y+=(hp.y-s.ret.y)*k;
+        if(Math.hypot(hp.x-s.ret.x,hp.y-s.ret.y)<2) s.ret=null; }
+    }
+    if(!s.food||s.pop<=0) return;
+    const img=mg.foods[s.food]; if(!img) return;
+    const dragging=mg.drag&&mg.drag.slot===i;
+    let x=L.pos[i].x, y=L.pos[i].y, sz=L.isz*ease(s.pop);
+    if(s.ret){ x=s.ret.x; y=s.ret.y; }
+    if(dragging){ x=mg.drag.x; y=mg.drag.y; sz*=1.1; }
+    const a=img.width>=img.height?sz:sz*img.width/img.height, b=img.width>=img.height?sz*img.height/img.width:sz;
+    g.fillStyle="rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(x,y+b*0.5+(dragging?sz*0.12:2),a*0.42,a*0.1,0,0,Math.PI*2); g.fill();
+    g.drawImage(img,Math.round(x-a/2),Math.round(y-b/2-(dragging?sz*0.06:0)),Math.round(a),Math.round(b));
+  });
+  // oblast pusy: při tažení jídla jemně svítí
+  if(showCollisions){                // oblast pusy se ukazuje jen v ladicím režimu (klávesa C)
+    const m=L.mouth, pulse=0.5+0.5*Math.sin(performance.now()/180);
+    const inside=mg.drag&&mg.drag.x>=m.x&&mg.drag.x<=m.x+m.w&&mg.drag.y>=m.y&&mg.drag.y<=m.y+m.h;
+    g.lineWidth=Math.max(3,h/200); g.setLineDash([h/60,h/90]);
+    g.strokeStyle=inside?"rgba(255,235,130,.95)":"rgba(255,235,130,"+(0.25+0.25*pulse)+")";
+    g.strokeRect(m.x,m.y,m.w,m.h); g.setLineDash([]);
+    if(inside){ g.fillStyle="rgba(255,235,130,.12)"; g.fillRect(m.x,m.y,m.w,m.h); }
+    const b=L.body; g.strokeStyle="rgba(90,220,255,.8)"; g.setLineDash([h/60,h/90]); g.strokeRect(b.x,b.y,b.w,b.h); g.setLineDash([]);
+  }
+  // zatemnění při konci minihry
+  if(mg.phase===3){ g.fillStyle="rgba(0,0,0,"+Math.min(1,mg.phaseT/0.8)+")"; g.fillRect(0,0,w,h); }
+}
+$("mgLeave").addEventListener("click",()=>{ if(mg.active&&mg.phase===0){ uiSound("leave"); closeMG(); } });
+(function wireMG(){
+  const c=$("mgcv");
+  const pos=e=>{ const r=c.getBoundingClientRect(); return {x:(e.clientX-r.left)*c.width/r.width, y:(e.clientY-r.top)*c.height/r.height}; };
+  const hit=p=>{ const L=mg.L; if(!L) return -1;
+    for(let i=0;i<4;i++){ const s=mg.slots[i]; if(s&&s.food&&s.pop>=0.6&&Math.hypot(p.x-L.pos[i].x,p.y-L.pos[i].y)<=L.isz*0.8) return i; }
+    return -1; };
+  c.addEventListener("pointerdown",e=>{
+    if(!mg.active||mg.drag||mg.phase>0||menu.state!=="closed") return;
+    e.preventDefault(); const p=pos(e), i=hit(p);
+    if(i>=0){ mg.drag={slot:i,x:p.x,y:p.y}; mg.slots[i].ret=null; c.setPointerCapture(e.pointerId); c.style.cursor="grabbing"; }
+    else if(mgInBody(p)) mgPoke();
+  });
+  c.addEventListener("pointermove",e=>{
+    const p=pos(e);
+    if(mg.drag){ mg.drag.x=p.x; mg.drag.y=p.y; }
+    else c.style.cursor=(mg.active&&mg.phase===0)?(hit(p)>=0?"grab":(mgInBody(p)&&mg.state!=="burp"?"pointer":"default")):"default";
+  });
+  const up=e=>{
+    if(!mg.drag) return;
+    const d=mg.drag, m=mg.L&&mg.L.mouth; mg.drag=null; c.style.cursor="default";
+    if(e.type!=="pointercancel" && m && d.x>=m.x&&d.x<=m.x+m.w&&d.y>=m.y&&d.y<=m.y+m.h) mgFeed(d.slot);
+    else mg.slots[d.slot].ret={x:d.x,y:d.y};                          // mimo pusu: jídlo se vrátí na stůl
+  };
+  c.addEventListener("pointerup",up); c.addEventListener("pointercancel",up);
+})();
+
+/* ================= prolog ================= */
+const prologue={active:false,fading:false,i:0,shown:0,acc:0};
+const prText=()=>CFG.PROLOGUE[prologue.i].replace(/\{name\}/g,playerName());
+function setPrText(){
+  const t=prText(); $("plvis").textContent=t.slice(0,prologue.shown); $("plhid").textContent=t.slice(prologue.shown);
+  $("prolog").classList.toggle("done",prologue.shown>=t.length);
+}
+function startPrologue(){
+  prologue.active=true; prologue.fading=false; prologue.i=0; prologue.shown=0; prologue.acc=0;
+  const el=$("prolog"); el.classList.remove("out"); el.classList.add("on"); setPrText();
+}
+function startMusicAfterPrologue(){   // hudba začíná až v hostinci a plynule se zesiluje
+  if(SETTINGS.music<=0) return;
+  music.fadeMul=0; applyMusicVol();
+  if(music.audio.getAttribute("src")) tryPlay(); else playNext();
+  const t0=performance.now(); clearInterval(music.fadeT);
+  music.fadeT=setInterval(()=>{ const k=Math.min(1,(performance.now()-t0)/2500); music.fadeMul=k; applyMusicVol(); if(k>=1) clearInterval(music.fadeT); },50);
+}
+function endPrologue(){            // černá obrazovka se plynule rozplyne a objeví se hostinec
+  prologue.fading=true; held.clear(); pointer.active=false;
+  const el=$("prolog"); el.classList.add("out");
+  startMusicAfterPrologue();
+  setTimeout(()=>{ prologue.active=false; prologue.fading=false; el.classList.remove("on","out","done"); },1900);
+}
+function prologueAdvance(){        // mezerník / libovolná klávesa / klik: nejdřív dopíše text, pak další odstavec
+  if(prologue.fading) return;
+  const t=prText();
+  if(prologue.shown<t.length){ prologue.shown=t.length; setPrText(); return; }
+  if(prologue.i+1>=CFG.PROLOGUE.length){ endPrologue(); return; }
+  uiSound("next"); prologue.i++; prologue.shown=0; prologue.acc=0; setPrText();
+}
+function prologueTick(dt){
+  if(!prologue.active||prologue.fading||menu.state!=="closed") return;
+  const t=prText();
+  if(prologue.shown<t.length){
+    prologue.acc+=dt*CFG.PROLOGUE_CPS; const n=Math.min(t.length,Math.floor(prologue.acc));
+    if(n!==prologue.shown){ prologue.shown=n; setPrText(); }
+  }
+}
+$("prolog").addEventListener("pointerdown",e=>{ e.preventDefault(); if(prologue.active) prologueAdvance(); });
+
+/* ================= hlavní nabídka ================= */
+let titleImg=null;
+function renderTitle(){            // statický 16:9 obrázek (lehce rozmazaný přes CSS)
+  const c=$("titlecv"), dpr=window.devicePixelRatio||1, w=Math.round(innerWidth*dpr), h=Math.round(innerHeight*dpr);
+  if(c.width!==w||c.height!==h){ c.width=w; c.height=h; }
+  const g=c.getContext("2d"); g.imageSmoothingEnabled=false;
+  g.fillStyle="#08060c"; g.fillRect(0,0,w,h);
+  if(!titleImg) return;
+  const W=titleImg.width, H=titleImg.height;
+  const stacked=Math.abs(W/(H/2)-16/9)<Math.abs(W/H-16/9);       // kdyby soubor ještě obsahoval 2 snímky pod sebou, použije se první
+  const fh=stacked?H/2:H, sc=Math.max(w/W,h/fh), dw=W*sc, dh=fh*sc;
+  g.drawImage(titleImg,0,0,W,fh,Math.round((w-dw)/2),Math.round((h-dh)/2),Math.round(dw),Math.round(dh));
+}
+function resetSession(){
+  prologue.active=false; prologue.fading=false; $("prolog").classList.remove("on","out","done");
+  dlg.active=false; dlg.onEnd=null; dlg.free=false; dlg.npc=null; $("dlg").classList.remove("on");
+  docSt.active=false; docSt.phase="read"; $("doc").classList.remove("on","dlgmode");
+  story.talked=false; story.signed=false; story.orderUnlocked=false; story.hungerT=0; story.growlCd=0; story.stage2Talk=false; closeMG(); held.clear(); pointer.active=false;
+  $("talk").style.display="none"; $("readp").style.display="none";
+}
+function showTitle(){
+  mode="title"; resetSession(); setMenu("closed"); menu.root="opts";
+  music.audio.pause(); firePauseAll();
+  music.audio.removeAttribute("src"); music.audio.load();             // další hra = nová náhodná hudba od začátku
+  music.order=[]; music.pos=-1; music.paused=false; music.blocked=false; music.focusPaused=false;
+  clearInterval(music.fadeT); music.fadeMul=1;
+  $("title").style.display="block"; $("namebox").style.display="none";
+  $("gear").style.display="none";
+}
+function startGame(name){
+  story.name=name; try{ localStorage.setItem("lampInnName",name); }catch(e){}
+  uiSound("start");
+  resetSession(); setMenu("closed");
+  if(world.ready) placePlayer(world.spawn.x,world.spawn.y);
+  player.dir="down"; player.state="stand"; player.t=0;
+  if(CFG.STAGE!==1) setStage(1);
+  mode="play"; menu.root="main";
+  $("title").style.display="none"; $("namebox").style.display="none";
+  $("gear").style.display="flex";
+  startPrologue();                   // hra začíná prologem na černé obrazovce
+}
+function openName(){
+  let last=""; try{ last=localStorage.getItem("lampInnName")||""; }catch(e){}
+  const inp=$("nameInput"); inp.value=last; $("namebox").style.display="flex"; inp.focus(); inp.select(); updateNameBtn();
+}
+function closeName(){ $("namebox").style.display="none"; }
+function updateNameBtn(){ $("nameOk").disabled=!$("nameInput").value.trim(); }
+function confirmName(){ const n=$("nameInput").value.trim(); if(n) startGame(n); }
+$("tPlay").addEventListener("click",openName);
+$("tOpts").addEventListener("click",()=>{ menu.root="opts"; setMenu("opts"); });
+$("tExit").addEventListener("click",exitGame);
+$("moClose").addEventListener("click",()=>setMenu("closed"));
+$("toTitle").addEventListener("click",showTitle);
+$("nameOk").addEventListener("click",confirmName);
+$("nameBack").addEventListener("click",closeName);
+$("nameInput").addEventListener("input",updateNameBtn);
+$("nameInput").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); confirmName(); } });
+
+/* ================= vlastní kurzor ================= */
+function setupCursor(img){
+  const el=$("cur"), size=CFG.CURSOR_SIZE, hx=CFG.CURSOR_HOT.x*size, hy=CFG.CURSOR_HOT.y*size;
+  el.src=img.src; el.style.width=size+"px"; el.style.height=size+"px";
+  el.style.imageRendering=(img.width<=size)?"pixelated":"auto";      // malý obrázek ostře zvětšit, velký kvalitně zmenšit
+  const move=e=>{
+    if(e.pointerType==="touch"){ el.style.display="none"; return; }
+    el.style.display="block"; el.style.transform="translate3d("+(e.clientX-hx)+"px,"+(e.clientY-hy)+"px,0)";
+  };
+  addEventListener("pointermove",move,{capture:true,passive:true});
+  addEventListener("pointerdown",move,{capture:true,passive:true});
+  if("onpointerrawupdate" in window) addEventListener("pointerrawupdate",move,{capture:true,passive:true});   // nejnižší zpoždění
+  document.documentElement.addEventListener("mouseleave",()=>{ el.style.display="none"; });
+  document.documentElement.classList.add("customcursor");               // skryje systémový kurzor
+}
+
+/* ================= start ================= */
+(async function init(){
+  try{
+    try{
+      const r=await Promise.race([document.fonts.load('20px "young_ex_7"'),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),2500))]);
+      if(!r||!r.length) throw new Error("none");
+    }catch(e){ warn("Font <b>young_ex_7</b> se nenačetl – čekám ho jako <code>fonts/young_ex_7.ttf</code>. Dialogy zatím používají náhradní písmo."); }
+    await loadSprites();
+    const ti=await tryLoad(candidates(nameVariants("main screen"),[CFG.PICTURES_DIR,""]));
+    if(ti) titleImg=ti.img; else warn("Nenašel jsem úvodní obrázek <b>main screen</b> ve složce <code>"+CFG.PICTURES_DIR+"</code>.");
+    fireInit();
+    const cr=await tryLoad(candidates(nameVariants("cursor"),[CFG.PICTURES_DIR,""]));
+    if(cr) setupCursor(cr.img); else warn("Nenašel jsem obrázek kurzoru <b>cursor</b> ve složce <code>"+CFG.PICTURES_DIR+"</code>.");
+    const {json,embedded}=await loadMapJSON();
+    await buildWorld(json);
+    if(embedded && location.protocol==="file:") console.info("Mapa načtena z kopie vložené v HTML (z disku nelze číst inn.tmj). Upravenou mapu přetáhni do okna.");
+  }catch(err){
+    warn("Chyba při startu: "+err.message); console.error(err);
+  }
+  $("status").classList.add("hidden");
+  showTitle();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
